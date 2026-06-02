@@ -1,5 +1,7 @@
 from flask import Blueprint
 from app.database import query
+from app.services.customer_service import get_all_customers
+from app.services.plan_service import get_yearly_investments
 
 main_bp = Blueprint("main", __name__)
 
@@ -49,3 +51,24 @@ def test_db():
 
     except Exception as e:
         return f"<h2>❌ DB Error</h2><pre>{str(e)}</pre>"
+@main_bp.route("/test-services")
+def test_services():
+    try:
+        customers = get_all_customers()
+
+        first_id = customers[0]["id"] if customers else None
+
+        investments = (
+            get_yearly_investments(first_id)
+            if first_id else []
+        )
+
+        return f"""
+            <h2>✅ Services Layer Working</h2>
+            <p><strong>Customers found:</strong> {len(customers)}</p>
+            <p><strong>Investments for customer {first_id}:</strong>
+            {len(investments)} records</p>
+        """
+
+    except Exception as e:
+        return f"<h2>❌ Service Error</h2><pre>{str(e)}</pre>"
