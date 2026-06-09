@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Design System Preview — Track & Act{% endblock %}
+
+{% block content %}
+<div class="vp-page-header">
+  <div>
+    <h2>Design System Preview</h2>
+    <p>Vasupradah brand colors applied across all UI components</p>
+  </div>
+  <button class="btn-vp-yellow">
+    <i class="bi bi-star-fill"></i> Primary Action
+  </button>
+</div>
+
+<!-- Stat Tiles -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="vp-stat">
+      <div class="stat-icon"><i class="bi bi-graph-up-arrow"></i></div>
+      <div class="stat-label">Total Invested</div>
+      <div class="stat-value">₹24,50,000</div>
+      <div class="stat-sub up"><i class="bi bi-arrow-up-short"></i> FY 2024–25</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="vp-stat">
+      <div class="stat-icon"><i class="bi bi-pie-chart-fill"></i></div>
+      <div class="stat-label">Portfolio Value</div>
+      <div class="stat-value">₹31,20,000</div>
+      <div class="stat-sub up"><i class="bi bi-arrow-up-short"></i> +27.3% growth</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="vp-stat">
+      <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>
+      <div class="stat-label">On Track</div>
+      <div class="stat-value">4 / 6</div>
+      <div class="stat-sub">Investment years</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="vp-stat">
+      <div class="stat-icon"><i class="bi bi-calendar3"></i></div>
+      <div class="stat-label">Plan Year</div>
+      <div class="stat-value">2024</div>
+      <div class="stat-sub">Current active plan</div>
+    </div>
+  </div>
+</div>
+
+<!-- Table Card -->
+<div class="vp-card vp-card-accent mb-4">
+  <div class="vp-card-header">
+    <h5 class="vp-card-title">
+      <i class="bi bi-table"></i> Yearly Investments
+    </h5>
+    <button class="btn-vp-ghost btn-sm">
+      <i class="bi bi-download"></i> Export
+    </button>
+  </div>
+  <div class="vp-table-wrap">
+    <table class="vp-table">
+      <thead>
+        <tr>
+          <th>Year</th><th>Target Amount</th>
+          <th>Actual Amount</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>2022</strong></td>
+          <td>₹3,00,000</td><td>₹3,10,000</td>
+          <td><span class="vp-badge vp-badge-success">On Track</span></td>
+        </tr>
+        <tr>
+          <td><strong>2023</strong></td>
+          <td>₹4,00,000</td><td>₹3,20,000</td>
+          <td><span class="vp-badge vp-badge-danger">Off Track</span></td>
+        </tr>
+        <tr>
+          <td><strong>2024</strong></td>
+          <td>₹5,00,000</td><td>₹4,80,000</td>
+          <td><span class="vp-badge vp-badge-warning">In Progress</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Buttons + Alerts -->
+<div class="vp-card vp-card-accent-yellow mb-4">
+  <div class="vp-card-header">
+    <h5 class="vp-card-title"><i class="bi bi-palette2"></i> Buttons & Alerts</h5>
+  </div>
+  <div class="vp-card-body">
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <button class="btn-vp-primary"><i class="bi bi-send"></i> Primary</button>
+      <button class="btn-vp-yellow"><i class="bi bi-star"></i> Accent</button>
+      <button class="btn-vp-outline">Outline</button>
+      <button class="btn-vp-ghost">Ghost</button>
+    </div>
+    <div class="vp-alert vp-alert-success mb-2">
+      <i class="bi bi-check-circle-fill"></i> Investment target achieved for FY 2022.
+    </div>
+    <div class="vp-alert vp-alert-warning mb-2">
+      <i class="bi bi-exclamation-triangle-fill"></i> Portfolio rebalancing recommended.
+    </div>
+    <div class="vp-alert vp-alert-danger">
+      <i class="bi bi-exclamation-circle-fill"></i> Investment below target for FY 2023.
+    </div>
+  </div>
+</div>
+
+{% endblock %}

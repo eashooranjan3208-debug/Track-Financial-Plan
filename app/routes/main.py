@@ -1,4 +1,4 @@
-from flask import Blueprint
+from flask import Blueprint, render_template
 from app.database import query
 from app.services.customer_service import get_all_customers
 from app.services.plan_service import get_yearly_investments
@@ -72,3 +72,7 @@ def test_services():
 
     except Exception as e:
         return f"<h2>❌ Service Error</h2><pre>{str(e)}</pre>"
+
+@main_bp.route("/test-base")
+def test_base():
+    return render_template("test_base.html")

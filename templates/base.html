@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}Track & Act — Vasupradah{% endblock %}</title>
+
+  <!-- Fonts: Outfit (headings) + DM Sans (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Bootstrap Icons -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
+  <style>
+    /* ═══════════════════════════════════════════════════════
+       VASUPRADAH DESIGN SYSTEM
+       Derived from the official Vasupradah brand guide
+       Primary: Royal Blue #2D35A8 | Accent: Yellow #F5B800
+    ═══════════════════════════════════════════════════════ */
+
+    :root {
+      /* ── Brand Colors (from logo guide) ─────────────────── */
+      --vp-blue:        #2D35A8;   /* Primary — logo background   */
+      --vp-blue-dark:   #1A1F6B;   /* Deep navy — text, headers   */
+      --vp-blue-mid:    #3D46C4;   /* Hover states, active links  */
+      --vp-blue-light:  #E8EAFE;   /* Tinted surface backgrounds  */
+      --vp-yellow:      #F5B800;   /* Accent — the growth arrow   */
+      --vp-yellow-dark: #D9A200;   /* Yellow hover, darker accent */
+      --vp-yellow-bg:   #FEF6DC;   /* Yellow tint for highlights  */
+
+      /* ── Neutral / Surface ───────────────────────────────── */
+      --vp-bg:          #F4F5FB;   /* Page background (blue tint) */
+      --vp-surface:     #FFFFFF;   /* Card, panel backgrounds     */
+      --vp-border:      #DDE1F5;   /* Borders — blue-grey         */
+      --vp-border-dark: #C4CBF0;   /* Stronger borders            */
+
+      /* ── Typography ─────────────────────────────────────── */
+      --vp-text:        #1A1F6B;   /* Primary text — deep navy    */
+      --vp-text-mid:    #3D4580;   /* Secondary text              */
+      --vp-text-muted:  #7B82BB;   /* Muted — labels, captions    */
+      --vp-text-light:  #A8AED4;   /* Disabled, placeholder text  */
+
+      /* ── Status Colors ───────────────────────────────────── */
+      --vp-success:     #1A9E74;   /* On-track investments        */
+      --vp-success-bg:  #E8F8F2;
+      --vp-warning:     #E89C00;   /* In-progress                 */
+      --vp-warning-bg:  #FEF4DC;
+      --vp-danger:      #D63B3B;   /* Off-track, errors           */
+      --vp-danger-bg:   #FDEAEA;
+      --vp-info:        #2D35A8;   /* Info uses brand blue        */
+      --vp-info-bg:     #E8EAFE;
+
+      /* ── Typography Families ─────────────────────────────── */
+      --font-heading:   'Outfit', sans-serif;
+      --font-body:      'DM Sans', sans-serif;
+
+      /* ── Spacing & Shape ─────────────────────────────────── */
+      --radius-sm:      6px;
+      --radius:         10px;
+      --radius-lg:      16px;
+      --shadow-sm:      0 1px 4px rgba(45,53,168,0.08);
+      --shadow:         0 4px 16px rgba(45,53,168,0.10);
+      --shadow-lg:      0 8px 32px rgba(45,53,168,0.14);
+      --transition:     all 0.18s ease;
+    }
+
+    /* ── Reset & Base ────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family:      var(--font-body);
+      background-color: var(--vp-bg);
+      color:            var(--vp-text);
+      font-size:        0.94rem;
+      font-weight:      400;
+      line-height:      1.65;
+      min-height:       100vh;
+      display:          flex;
+      flex-direction:   column;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      font-family: var(--font-heading);
+      color:       var(--vp-blue-dark);
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    a {
+      color:           var(--vp-blue);
+      text-decoration: none;
+      transition:      var(--transition);
+    }
+    a:hover { color: var(--vp-blue-dark); }
+
+    /* ── Navbar ──────────────────────────────────────────── */
+    .vp-navbar {
+      background:    var(--vp-blue);
+      padding:       0;
+      height:        62px;
+      display:       flex;
+      align-items:   center;
+      box-shadow:    0 2px 16px rgba(26,31,107,0.22);
+      position:      sticky;
+      top:           0;
+      z-index:       1000;
+    }
+
+    .vp-navbar .container-fluid {
+      display:         flex;
+      align-items:     center;
+      justify-content: space-between;
+      padding:         0 1.5rem;
+    }
+
+    /* Brand wordmark — mirrors the logo style */
+    .vp-brand {
+      font-family:    var(--font-heading);
+      font-size:      1.25rem;
+      font-weight:    800;
+      color:          #FFFFFF !important;
+      letter-spacing: -0.01em;
+      display:        flex;
+      align-items:    center;
+      gap:            0.4rem;
+      text-decoration: none;
+    }
+
+    /* The yellow accent square — echoes the logo's arrow mark */
+    .vp-brand::before {
+      content:       '';
+      display:       inline-block;
+      width:         10px;
+      height:        10px;
+      background:    var(--vp-yellow);
+      border-radius: 2px;
+      transform:     rotate(0deg);
+      flex-shrink:   0;
+    }
+
+    .vp-brand .sub {
+      font-size:   0.65rem;
+      font-weight: 500;
+      color:       rgba(255,255,255,0.55);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-left: 0.2rem;
+      align-self:  flex-end;
+      margin-bottom: 2px;
+    }
+
+    .vp-nav-links {
+      display:     flex;
+      align-items: center;
+      gap:         0.15rem;
+    }
+
+    .vp-nav-link {
+      color:        rgba(255,255,255,0.75) !important;
+      font-family:  var(--font-body);
+      font-size:    0.82rem;
+      font-weight:  500;
+      padding:      0.4rem 0.85rem !important;
+      border-radius: var(--radius-sm);
+      transition:   var(--transition);
+      letter-spacing: 0.01em;
+      text-decoration: none;
+      display:      flex;
+      align-items:  center;
+      gap:          0.4rem;
+      white-space:  nowrap;
+    }
+
+    .vp-nav-link i { font-size: 0.9rem; }
+
+    .vp-nav-link:hover {
+      color:      #FFFFFF !important;
+      background: rgba(255,255,255,0.12);
+    }
+
+    .vp-nav-link.active {
+      color:      #FFFFFF !important;
+      background: rgba(245,184,0,0.18);
+      border-bottom: 2px solid var(--vp-yellow);
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    }
+
+    .vp-nav-right {
+      display:     flex;
+      align-items: center;
+      gap:         0.75rem;
+    }
+
+    /* User badge in navbar */
+    .vp-user-badge {
+      display:      flex;
+      align-items:  center;
+      gap:          0.5rem;
+      color:        rgba(255,255,255,0.85);
+      font-size:    0.82rem;
+      font-weight:  500;
+    }
+
+    .vp-user-avatar {
+      width:         30px;
+      height:        30px;
+      background:    var(--vp-yellow);
+      border-radius: 50%;
+      display:       flex;
+      align-items:   center;
+      justify-content: center;
+      font-family:   var(--font-heading);
+      font-size:     0.8rem;
+      font-weight:   700;
+      color:         var(--vp-blue-dark);
+    }
+
+    .vp-btn-logout {
+      background:    transparent;
+      border:        1.5px solid rgba(255,255,255,0.3);
+      color:         rgba(255,255,255,0.85) !important;
+      font-size:     0.78rem;
+      font-weight:   600;
+      padding:       0.3rem 0.85rem;
+      border-radius: var(--radius-sm);
+      transition:    var(--transition);
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      text-decoration: none;
+      display:       flex;
+      align-items:   center;
+      gap:           0.35rem;
+    }
+
+    .vp-btn-logout:hover {
+      background:    var(--vp-yellow);
+      border-color:  var(--vp-yellow);
+      color:         var(--vp-blue-dark) !important;
+    }
+
+    /* ── Page Content Area ───────────────────────────────── */
+    .vp-page {
+      flex:    1;
+      padding: 2rem 0 3rem;
+    }
+
+    /* ── Page Header ─────────────────────────────────────── */
+    .vp-page-header {
+      margin-bottom:  1.75rem;
+      padding-bottom: 1.25rem;
+      border-bottom:  2px solid var(--vp-border);
+      display:        flex;
+      align-items:    flex-end;
+      justify-content: space-between;
+      gap:            1rem;
+      flex-wrap:      wrap;
+    }
+
+    .vp-page-header h2 {
+      font-size:   1.55rem;
+      font-weight: 800;
+      margin:      0 0 0.2rem;
+      color:       var(--vp-blue-dark);
+    }
+
+    .vp-page-header p {
+      color:   var(--vp-text-muted);
+      margin:  0;
+      font-size: 0.88rem;
+    }
+
+    /* ── Flash Messages ──────────────────────────────────── */
+    .vp-alerts {
+      padding: 0.75rem 0 0;
+    }
+
+    .vp-alert {
+      border:        none;
+      border-left:   4px solid;
+      border-radius: var(--radius-sm);
+      font-size:     0.88rem;
+      font-weight:   500;
+      padding:       0.75rem 1rem;
+      display:       flex;
+      align-items:   center;
+      gap:           0.6rem;
+    }
+
+    .vp-alert-success {
+      background:   var(--vp-success-bg);
+      border-color: var(--vp-success);
+      color:        var(--vp-success);
+    }
+
+    .vp-alert-danger, .vp-alert-error {
+      background:   var(--vp-danger-bg);
+      border-color: var(--vp-danger);
+      color:        var(--vp-danger);
+    }
+
+    .vp-alert-warning {
+      background:   var(--vp-warning-bg);
+      border-color: var(--vp-warning);
+      color:        var(--vp-warning);
+    }
+
+    .vp-alert-info {
+      background:   var(--vp-info-bg);
+      border-color: var(--vp-info);
+      color:        var(--vp-info);
+    }
+
+    /* ── Cards ───────────────────────────────────────────── */
+    .vp-card {
+      background:    var(--vp-surface);
+      border:        1px solid var(--vp-border);
+      border-radius: var(--radius);
+      box-shadow:    var(--shadow-sm);
+      transition:    var(--transition);
+      overflow:      hidden;
+    }
+
+    .vp-card:hover { box-shadow: var(--shadow); }
+
+    .vp-card-body { padding: 1.5rem; }
+
+    .vp-card-header {
+      padding:       1rem 1.5rem;
+      background:    var(--vp-surface);
+      border-bottom: 1px solid var(--vp-border);
+      display:       flex;
+      align-items:   center;
+      justify-content: space-between;
+      gap:           0.75rem;
+    }
+
+    .vp-card-title {
+      font-family: var(--font-heading);
+      font-size:   1rem;
+      font-weight: 700;
+      color:       var(--vp-blue-dark);
+      margin:      0;
+      display:     flex;
+      align-items: center;
+      gap:         0.5rem;
+    }
+
+    .vp-card-title i {
+      color:     var(--vp-yellow);
+      font-size: 1.05rem;
+    }
+
+    /* Blue-accented card variant */
+    .vp-card-accent {
+      border-top: 3px solid var(--vp-blue);
+    }
+
+    .vp-card-accent-yellow {
+      border-top: 3px solid var(--vp-yellow);
+    }
+
+    /* ── Stat Tiles ──────────────────────────────────────── */
+    .vp-stat {
+      background:    var(--vp-surface);
+      border:        1px solid var(--vp-border);
+      border-radius: var(--radius);
+      padding:       1.25rem 1.5rem;
+      position:      relative;
+      overflow:      hidden;
+      box-shadow:    var(--shadow-sm);
+      transition:    var(--transition);
+    }
+
+    .vp-stat::after {
+      content:       '';
+      position:      absolute;
+      top:           0; right: 0;
+      width:         4px;
+      height:        100%;
+      background:    var(--vp-yellow);
+      border-radius: 0 var(--radius) var(--radius) 0;
+    }
+
+    .vp-stat:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+
+    .vp-stat .stat-icon {
+      width:           38px;
+      height:          38px;
+      background:      var(--vp-blue-light);
+      border-radius:   var(--radius-sm);
+      display:         flex;
+      align-items:     center;
+      justify-content: center;
+      margin-bottom:   0.9rem;
+      font-size:       1.1rem;
+      color:           var(--vp-blue);
+    }
+
+    .vp-stat .stat-label {
+      font-size:      0.73rem;
+      font-weight:    600;
+      color:          var(--vp-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom:  0.3rem;
+    }
+
+    .vp-stat .stat-value {
+      font-family:  var(--font-heading);
+      font-size:    1.6rem;
+      font-weight:  800;
+      color:        var(--vp-blue-dark);
+      line-height:  1.1;
+      margin-bottom: 0.25rem;
+    }
+
+    .vp-stat .stat-sub {
+      font-size: 0.78rem;
+      color:     var(--vp-text-muted);
+    }
+
+    .vp-stat .stat-sub.up   { color: var(--vp-success); }
+    .vp-stat .stat-sub.down { color: var(--vp-danger);  }
+
+    /* ── Tables ──────────────────────────────────────────── */
+    .vp-table-wrap {
+      border-radius: var(--radius);
+      overflow:      hidden;
+      border:        1px solid var(--vp-border);
+    }
+
+    .vp-table {
+      width:           100%;
+      border-collapse: collapse;
+      font-size:       0.88rem;
+      margin:          0;
+    }
+
+    .vp-table thead tr {
+      background: var(--vp-blue);
+    }
+
+    .vp-table thead th {
+      color:          rgba(255,255,255,0.9);
+      font-family:    var(--font-heading);
+      font-size:      0.75rem;
+      font-weight:    600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      padding:        0.75rem 1rem;
+      border:         none;
+      white-space:    nowrap;
+    }
+
+    .vp-table tbody tr {
+      border-bottom: 1px solid var(--vp-border);
+      transition:    var(--transition);
+    }
+
+    .vp-table tbody tr:last-child { border-bottom: none; }
+
+    .vp-table tbody tr:hover {
+      background: var(--vp-blue-light);
+    }
+
+    .vp-table tbody td {
+      padding:     0.8rem 1rem;
+      color:       var(--vp-text);
+      vertical-align: middle;
+    }
+
+    .vp-table tfoot tr {
+      background:    var(--vp-bg);
+      border-top:    2px solid var(--vp-border-dark);
+    }
+
+    .vp-table tfoot td {
+      padding:     0.75rem 1rem;
+      font-weight: 600;
+      color:       var(--vp-blue-dark);
+      font-size:   0.88rem;
+    }
+
+    /* ── Badges / Status Pills ───────────────────────────── */
+    .vp-badge {
+      display:        inline-flex;
+      align-items:    center;
+      gap:            0.3rem;
+      padding:        0.28rem 0.7rem;
+      border-radius:  20px;
+      font-size:      0.73rem;
+      font-weight:    600;
+      letter-spacing: 0.03em;
+      white-space:    nowrap;
+    }
+
+    .vp-badge::before {
+      content:       '';
+      width:         6px; height: 6px;
+      border-radius: 50%;
+      background:    currentColor;
+      display:       inline-block;
+    }
+
+    .vp-badge-success {
+      background: var(--vp-success-bg);
+      color:      var(--vp-success);
+    }
+
+    .vp-badge-warning {
+      background: var(--vp-warning-bg);
+      color:      var(--vp-warning);
+    }
+
+    .vp-badge-danger {
+      background: var(--vp-danger-bg);
+      color:      var(--vp-danger);
+    }
+
+    .vp-badge-blue {
+      background: var(--vp-blue-light);
+      color:      var(--vp-blue);
+    }
+
+    .vp-badge-yellow {
+      background: var(--vp-yellow-bg);
+      color:      var(--vp-yellow-dark);
+    }
+
+    /* ── Buttons ─────────────────────────────────────────── */
+    .btn-vp-primary {
+      background:    var(--vp-blue);
+      color:         #FFFFFF;
+      border:        none;
+      border-radius: var(--radius-sm);
+      font-family:   var(--font-body);
+      font-weight:   600;
+      font-size:     0.88rem;
+      padding:       0.55rem 1.35rem;
+      letter-spacing: 0.01em;
+      transition:    var(--transition);
+      cursor:        pointer;
+      display:       inline-flex;
+      align-items:   center;
+      gap:           0.4rem;
+    }
+
+    .btn-vp-primary:hover {
+      background: var(--vp-blue-mid);
+      color:      #FFFFFF;
+      transform:  translateY(-1px);
+      box-shadow: var(--shadow);
+    }
+
+    .btn-vp-yellow {
+      background:    var(--vp-yellow);
+      color:         var(--vp-blue-dark);
+      border:        none;
+      border-radius: var(--radius-sm);
+      font-family:   var(--font-body);
+      font-weight:   700;
+      font-size:     0.88rem;
+      padding:       0.55rem 1.35rem;
+      letter-spacing: 0.01em;
+      transition:    var(--transition);
+      cursor:        pointer;
+      display:       inline-flex;
+      align-items:   center;
+      gap:           0.4rem;
+    }
+
+    .btn-vp-yellow:hover {
+      background: var(--vp-yellow-dark);
+      color:      var(--vp-blue-dark);
+      transform:  translateY(-1px);
+      box-shadow: var(--shadow);
+    }
+
+    .btn-vp-outline {
+      background:    transparent;
+      color:         var(--vp-blue);
+      border:        1.5px solid var(--vp-blue);
+      border-radius: var(--radius-sm);
+      font-family:   var(--font-body);
+      font-weight:   600;
+      font-size:     0.88rem;
+      padding:       0.52rem 1.35rem;
+      letter-spacing: 0.01em;
+      transition:    var(--transition);
+      cursor:        pointer;
+      display:       inline-flex;
+      align-items:   center;
+      gap:           0.4rem;
+    }
+
+    .btn-vp-outline:hover {
+      background: var(--vp-blue);
+      color:      #FFFFFF;
+    }
+
+    .btn-vp-ghost {
+      background:    transparent;
+      color:         var(--vp-text-muted);
+      border:        1.5px solid var(--vp-border);
+      border-radius: var(--radius-sm);
+      font-family:   var(--font-body);
+      font-weight:   500;
+      font-size:     0.85rem;
+      padding:       0.48rem 1rem;
+      transition:    var(--transition);
+      cursor:        pointer;
+      display:       inline-flex;
+      align-items:   center;
+      gap:           0.4rem;
+    }
+
+    .btn-vp-ghost:hover {
+      border-color: var(--vp-blue);
+      color:        var(--vp-blue);
+      background:   var(--vp-blue-light);
+    }
+
+    /* ── Form Controls ───────────────────────────────────── */
+    .vp-input {
+      width:         100%;
+      padding:       0.6rem 0.9rem;
+      border:        1.5px solid var(--vp-border);
+      border-radius: var(--radius-sm);
+      font-family:   var(--font-body);
+      font-size:     0.9rem;
+      color:         var(--vp-text);
+      background:    var(--vp-surface);
+      transition:    var(--transition);
+      outline:       none;
+    }
+
+    .vp-input:focus {
+      border-color: var(--vp-blue);
+      box-shadow:   0 0 0 3px rgba(45,53,168,0.1);
+    }
+
+    .vp-input::placeholder { color: var(--vp-text-light); }
+
+    .vp-label {
+      font-size:      0.8rem;
+      font-weight:    600;
+      color:          var(--vp-text-mid);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom:  0.4rem;
+      display:        block;
+    }
+
+    .vp-form-group { margin-bottom: 1.1rem; }
+
+    /* ── Section Divider ─────────────────────────────────── */
+    .vp-divider {
+      border:     none;
+      border-top: 1px solid var(--vp-border);
+      margin:     1.25rem 0;
+    }
+
+    /* ── Footer ──────────────────────────────────────────── */
+    .vp-footer {
+      background:   var(--vp-blue-dark);
+      color:        rgba(255,255,255,0.4);
+      text-align:   center;
+      font-size:    0.78rem;
+      padding:      1rem 0;
+      margin-top:   auto;
+      letter-spacing: 0.03em;
+    }
+
+    .vp-footer span { color: var(--vp-yellow); }
+
+    /* ── Utility Classes ─────────────────────────────────── */
+    .text-vp-blue    { color: var(--vp-blue)      !important; }
+    .text-vp-yellow  { color: var(--vp-yellow)    !important; }
+    .text-vp-dark    { color: var(--vp-blue-dark) !important; }
+    .text-vp-muted   { color: var(--vp-text-muted)!important; }
+    .bg-vp-blue      { background: var(--vp-blue) !important; }
+    .bg-vp-light     { background: var(--vp-bg)   !important; }
+    .bg-vp-yellow    { background: var(--vp-yellow-bg) !important; }
+
+    /* ── Page load animation ─────────────────────────────── */
+    @keyframes vpFadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0);    }
+    }
+
+    .vp-page > .container {
+      animation: vpFadeUp 0.3s ease both;
+    }
+
+    /* ── Responsive ──────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .vp-navbar { height: auto; padding: 0.6rem 0; }
+      .vp-nav-links { display: none; }
+      .vp-stat .stat-value { font-size: 1.3rem; }
+    }
+  </style>
+
+  {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+
+  <!-- ── Navbar ──────────────────────────────────────────── -->
+  <nav class="vp-navbar">
+    <div class="container-fluid">
+
+      <!-- Brand -->
+      <a class="vp-brand" href="/">
+        Vasupradah
+        <span class="sub">Track &amp; Act</span>
+      </a>
+
+      <!-- Nav Links -->
+      <div class="vp-nav-links">
+        {% if session.get('role') == 'customer' %}
+          <a class="vp-nav-link {% if request.endpoint == 'customer.dashboard' %}active{% endif %}"
+             href="{{ url_for('customer.dashboard') }}">
+            <i class="bi bi-grid-1x2-fill"></i> Dashboard
+          </a>
+          <a class="vp-nav-link {% if request.endpoint == 'customer.financial_plan' %}active{% endif %}"
+             href="{{ url_for('customer.financial_plan') }}">
+            <i class="bi bi-file-earmark-text-fill"></i> My Plan
+          </a>
+          <a class="vp-nav-link {% if request.endpoint == 'customer.investments' %}active{% endif %}"
+             href="{{ url_for('customer.investments') }}">
+            <i class="bi bi-graph-up-arrow"></i> Investments
+          </a>
+          <a class="vp-nav-link {% if request.endpoint == 'customer.portfolio' %}active{% endif %}"
+             href="{{ url_for('customer.portfolio') }}">
+            <i class="bi bi-pie-chart-fill"></i> Portfolio
+          </a>
+          <a class="vp-nav-link {% if request.endpoint == 'customer.other_assets' %}active{% endif %}"
+             href="{{ url_for('customer.other_assets') }}">
+            <i class="bi bi-safe2-fill"></i> Other Assets
+          </a>
+
+        {% elif session.get('role') == 'admin' %}
+          <a class="vp-nav-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}"
+             href="{{ url_for('admin.dashboard') }}">
+            <i class="bi bi-speedometer2"></i> Dashboard
+          </a>
+          <a class="vp-nav-link {% if request.endpoint == 'admin.customers' %}active{% endif %}"
+             href="{{ url_for('admin.customers') }}">
+            <i class="bi bi-people-fill"></i> Customers
+          </a>
+          <a class="vp-nav-link {% if request.endpoint == 'admin.upload' %}active{% endif %}"
+             href="{{ url_for('admin.upload') }}">
+            <i class="bi bi-cloud-arrow-up-fill"></i> Upload
+          </a>
+        {% endif %}
+      </div>
+
+      <!-- Right side: user info + logout -->
+      <div class="vp-nav-right">
+        {% if session.get('user_id') %}
+          <div class="vp-user-badge">
+            <div class="vp-user-avatar">
+              {{ session.get('user_name', 'U')[0].upper() }}
+            </div>
+            <span class="d-none d-md-inline">
+              {{ session.get('user_name', '') }}
+            </span>
+          </div>
+          <a href="{{ url_for('auth.logout') }}" class="vp-btn-logout">
+            <i class="bi bi-box-arrow-right"></i> Logout
+          </a>
+        {% endif %}
+      </div>
+
+    </div>
+  </nav>
+
+  <!-- ── Flash Messages ──────────────────────────────────── -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="container vp-alerts">
+        {% for category, message in messages %}
+          <div class="vp-alert vp-alert-{{ 'danger' if category == 'error' else category }} mb-2">
+            <i class="bi bi-{% if category == 'success' %}check-circle-fill{% elif category in ['error','danger'] %}exclamation-circle-fill{% elif category == 'warning' %}exclamation-triangle-fill{% else %}info-circle-fill{% endif %}"></i>
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- ── Main Content ─────────────────────────────────────── -->
+  <main class="vp-page">
+    <div class="container">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+  <!-- ── Footer ───────────────────────────────────────────── -->
+  <footer class="vp-footer">
+    &copy; 2025 <span>Vasupradah</span> Investment Advisors &nbsp;·&nbsp; Track &amp; Act Portal
+  </footer>
+
+  <!-- Bootstrap 5 JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+
+  {% block extra_js %}{% endblock %}
+
+</body>
+</html>
