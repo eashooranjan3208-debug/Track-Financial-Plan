@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Upload Complete — Track & Act Admin{% endblock %}
+
+{% block content %}
+<div class="vp-page-header">
+  <div>
+    <h2>Upload Complete</h2>
+    <p>Results for <strong class="text-vp-dark">{{ customer.name }}</strong>
+       ({{ customer.pan[:3] }}****{{ customer.pan[-3:] }})</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('admin.upload') }}" class="btn-vp-yellow">
+      <i class="bi bi-cloud-arrow-up-fill me-1"></i> Upload More
+    </a>
+    <a href="{{ url_for('admin.dashboard') }}" class="btn-vp-primary">
+      <i class="bi bi-speedometer2 me-1"></i> Dashboard
+    </a>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="vp-card" style="border-top: 3px solid var(--vp-success);">
+      <div class="vp-card-header" style="border-bottom: 1px solid var(--vp-border); padding-bottom: 1rem;">
+        <h5 class="vp-card-title mb-0">
+          <i class="bi bi-check2-all" style="color: var(--vp-success);"></i> 
+          Processing Results
+        </h5>
+      </div>
+      
+      <div class="vp-card-body">
+        {% for key, msg in results.items() %}
+        <div class="d-flex justify-content-between align-items-center mb-3 p-3 bg-vp-light rounded" style="border: 1px solid var(--vp-border);">
+          <span style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--vp-text-muted); letter-spacing: 0.05em;">
+            {{ key.replace('_',' ') }}
+          </span>
+          <!-- Moved the Jinja logic into the class attribute here to fix the VS Code error! -->
+          <span class="fw-bold {{ 'text-success' if msg.startswith('✅') else 'text-danger' }}" style="font-size: 0.9rem;">
+            {{ msg }}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+      
+    </div>
+  </div>
+</div>
+{% endblock %}

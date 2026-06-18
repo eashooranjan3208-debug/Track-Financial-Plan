@@ -730,19 +730,19 @@
             <i class="bi bi-grid-1x2-fill"></i> Dashboard
           </a>
           <a class="vp-nav-link {% if request.endpoint == 'customer.financial_plan' %}active{% endif %}"
-             href="{{ url_for('customer.financial_plan') }}">
+             href="{% if plan %}{{ url_for('customer.view_plan', plan_id=plan.id) }}{% else %}#{% endif %}">
             <i class="bi bi-file-earmark-text-fill"></i> My Plan
           </a>
           <a class="vp-nav-link {% if request.endpoint == 'customer.investments' %}active{% endif %}"
-             href="{{ url_for('customer.investments') }}">
+             href="#">
             <i class="bi bi-graph-up-arrow"></i> Investments
           </a>
           <a class="vp-nav-link {% if request.endpoint == 'customer.portfolio' %}active{% endif %}"
-             href="{{ url_for('customer.portfolio') }}">
+             href="#">
             <i class="bi bi-pie-chart-fill"></i> Portfolio
           </a>
           <a class="vp-nav-link {% if request.endpoint == 'customer.other_assets' %}active{% endif %}"
-             href="{{ url_for('customer.other_assets') }}">
+             href="#">
             <i class="bi bi-safe2-fill"></i> Other Assets
           </a>
 

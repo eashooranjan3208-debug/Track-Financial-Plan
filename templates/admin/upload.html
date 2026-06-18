@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% block title %}Upload Files — Track & Act Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+  .upload-zone {
+    border: 2px dashed var(--vp-border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    transition: var(--transition);
+    background: var(--vp-bg);
+  }
+  .upload-zone:hover { border-color: var(--vp-blue); background: var(--vp-blue-light); }
+  .upload-zone label {
+    display: flex; align-items: center; gap: 0.75rem;
+    cursor: pointer; margin: 0;
+  }
+  .upload-zone .icon {
+    width: 40px; height: 40px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; flex-shrink: 0;
+  }
+  .upload-zone .file-name {
+    font-size: 0.8rem; color: var(--vp-text-muted); margin-top: 2px;
+  }
+  .upload-zone input[type="file"] { display: none; }
+  .section-divider {
+    display: flex; align-items: center; gap: 1rem;
+    margin: 1.5rem 0 1rem;
+  }
+  .section-divider span {
+    font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--vp-text-muted); white-space: nowrap;
+  }
+  .section-divider::before, .section-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--vp-border);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="vp-page-header">
+  <div>
+    <h2>Upload Customer Files</h2>
+    <p>Upload financial plan and data files for a customer</p>
+  </div>
+  <a href="{{ url_for('admin.dashboard') }}" class="btn-vp-ghost">
+    <i class="bi bi-arrow-left"></i> Back
+  </a>
+</div>
+
+<div class="row g-4">
+<div class="col-lg-8">
+<form method="POST" enctype="multipart/form-data">
+
+  <!-- Customer selection -->
+  <div class="vp-card vp-card-accent mb-3">
+    <div class="vp-card-header">
+      <h5 class="vp-card-title">
+        <i class="bi bi-person-fill"></i> Select Customer
+      </h5>
+    </div>
+    <div class="vp-card-body">
+      <div class="vp-form-group mb-0">
+        <label class="vp-label">Customer</label>
+        <select name="customer_id" class="vp-input" required id="customer-select">
+          <option value="">— Select a customer —</option>
+          {% for c in customers %}
+          <option value="{{ c.id }}">
+            {{ c.name }}
+            ({{ c.pan[:3] }}****{{ c.pan[-3:] }})
+            {% if not c.has_active_plan %} — No plan yet{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Financial Plan files -->
+  <div class="section-divider">
+    <span><i class="bi bi-file-earmark-text me-1"></i> Financial Plan</span>
+  </div>
+
+  <div class="vp-card mb-3">
+    <div class="vp-card-body">
+      <div class="row g-3">
+
+        <div class="col-md-6">
+          <div class="upload-zone" id="zone-json">
+            <label for="json_file">
+              <div class="icon" style="background:var(--vp-blue-light); color:var(--vp-blue);">
+                <i class="bi bi-filetype-json"></i>
+              </div>
+              <div>
+                <div style="font-weight:600; font-size:0.88rem;">Plan Data (JSON)</div>
+                <div class="file-name" id="json-name">
+                  *_plan.json — click to select
+                </div>
+              </div>
+            </label>
+            <input type="file" name="json_file" id="json_file"
+                   accept=".json" onchange="showName(this,'json-name')">
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="upload-zone" id="zone-html">
+            <label for="html_file">
+              <div class="icon" style="background:var(--vp-yellow-bg); color:var(--vp-yellow-dark);">
+                <i class="bi bi-filetype-html"></i>
+              </div>
+              <div>
+                <div style="font-weight:600; font-size:0.88rem;">Plan Report (HTML)</div>
+                <div class="file-name" id="html-name">
+                  *_report.html — click to select
+                </div>
+              </div>
+            </label>
+            <input type="file" name="html_file" id="html_file"
+                   accept=".html,.htm" onchange="showName(this,'html-name')">
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Live data files -->
+  <div class="section-divider">
+    <span><i class="bi bi-table me-1"></i>
+      Live Data — System-Wide Files (all customers)
+    </span>
+  </div>
+
+  <div class="vp-card mb-4">
+    <div class="vp-card-body">
+      <div class="row g-3">
+
+        <div class="col-12">
+          <div class="upload-zone">
+            <label for="transactions_file">
+              <div class="icon" style="background:var(--vp-success-bg); color:var(--vp-success);">
+                <i class="bi bi-arrow-left-right"></i>
+              </div>
+              <div>
+                <div style="font-weight:600; font-size:0.88rem;">Transactions</div>
+                <div class="file-name" id="tx-name">
+                  YYYYMMDD_HHMMSS_transactions.xlsx — all customers
+                </div>
+              </div>
+            </label>
+            <input type="file" name="transactions_file" id="transactions_file"
+                   accept=".xlsx,.xls" onchange="showName(this,'tx-name')">
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="upload-zone">
+            <label for="portfolio_file">
+              <div class="icon" style="background:var(--vp-blue-light); color:var(--vp-blue);">
+                <i class="bi bi-graph-up-arrow"></i>
+              </div>
+              <div>
+                <div style="font-weight:600; font-size:0.88rem;">Portfolio Value</div>
+                <div class="file-name" id="pf-name">
+                  YYYYMMDD_HHMMSS_portfolio.xlsx
+                </div>
+              </div>
+            </label>
+            <input type="file" name="portfolio_file" id="portfolio_file"
+                   accept=".xlsx,.xls" onchange="showName(this,'pf-name')">
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="upload-zone">
+            <label for="asset_allocation_file">
+              <div class="icon" style="background:var(--vp-warning-bg); color:var(--vp-warning);">
+                <i class="bi bi-pie-chart-fill"></i>
+              </div>
+              <div>
+                <div style="font-weight:600; font-size:0.88rem;">Asset Allocation</div>
+                <div class="file-name" id="aa-name">
+                  YYYYMMDD_HHMMSS_asset_allocation.xlsx
+                </div>
+              </div>
+            </label>
+            <input type="file" name="asset_allocation_file"
+                   id="asset_allocation_file"
+                   accept=".xlsx,.xls" onchange="showName(this,'aa-name')">
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <button type="submit" class="btn-vp-yellow btn-vp-login"
+          style="width:100%; justify-content:center; padding:0.8rem;">
+    <i class="bi bi-cloud-arrow-up-fill me-2"></i>
+    Upload & Process Files
+  </button>
+
+</form>
+</div>
+
+<!-- Help panel -->
+<div class="col-lg-4">
+  <div class="vp-card" style="position:sticky; top:80px;">
+    <div class="vp-card-header">
+      <h5 class="vp-card-title">
+        <i class="bi bi-info-circle-fill"></i> File Guide
+      </h5>
+    </div>
+    <div class="vp-card-body" style="font-size:0.83rem;">
+
+      <p style="color:var(--vp-text-muted); margin-bottom:1rem;">
+        All files are optional per upload. Upload only what you have.
+      </p>
+
+      <div class="cf-row">
+        <span class="cf-label">plan.json</span>
+        <span class="vp-badge vp-badge-blue">per customer</span>
+      </div>
+      <p style="color:var(--vp-text-muted); font-size:0.79rem; margin:0.35rem 0 0.75rem;">
+        Imports goals, cashflow projections, family, assets.
+        Archives the previous plan automatically.
+      </p>
+
+      <div class="cf-row">
+        <span class="cf-label">report.html</span>
+        <span class="vp-badge vp-badge-yellow">per customer</span>
+      </div>
+      <p style="color:var(--vp-text-muted); font-size:0.79rem; margin:0.35rem 0 0.75rem;">
+        Stored and shown as the customer's plan report.
+      </p>
+
+      <div class="cf-row">
+        <span class="cf-label">transactions.xlsx</span>
+        <span class="vp-badge vp-badge-success">system-wide</span>
+      </div>
+      <p style="color:var(--vp-text-muted); font-size:0.79rem; margin:0.35rem 0 0.75rem;">
+        Contains all customers. PAN maps rows to accounts.
+        Duplicate rows are automatically ignored.
+      </p>
+
+      <div class="cf-row">
+        <span class="cf-label">portfolio.xlsx</span>
+        <span class="vp-badge vp-badge-success">system-wide</span>
+      </div>
+      <p style="color:var(--vp-text-muted); font-size:0.79rem; margin:0.35rem 0 0.75rem;">
+        Today's portfolio value snapshot. Re-uploading
+        the same date is safe (ignored).
+      </p>
+
+      <div class="cf-row">
+        <span class="cf-label">asset_allocation.xlsx</span>
+        <span class="vp-badge vp-badge-success">system-wide</span>
+      </div>
+      <p style="color:var(--vp-text-muted); font-size:0.79rem; margin:0.35rem 0 0.75rem;">
+        Live fund-level allocation snapshot.
+      </p>
+
+      <hr class="vp-divider">
+      <p style="color:var(--vp-text-muted); font-size:0.79rem; margin:0;">
+        <strong>File naming convention:</strong><br>
+        <code>YYYYMMDD_HHMMSS_PAN_filetype.ext</code><br>
+        System-wide files do not include PAN in the name.
+      </p>
+    </div>
+  </div>
+</div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showName(input, labelId) {
+  const label = document.getElementById(labelId);
+  if (input.files && input.files[0]) {
+    label.textContent = input.files[0].name;
+    label.style.color = 'var(--vp-blue)';
+    label.style.fontWeight = '600';
+    input.closest('.upload-zone').style.borderColor = 'var(--vp-blue)';
+    input.closest('.upload-zone').style.background  = 'var(--vp-blue-light)';
+  }
+}
+</script>
+{% endblock %}

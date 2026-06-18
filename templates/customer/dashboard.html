@@ -1,0 +1,775 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Track & Act{% endblock %}
+
+{% block extra_css %}
+<style>
+  .cycle-banner {
+    background: var(--vp-blue); border-radius: var(--radius);
+    padding: 1rem 1.5rem; display: flex; align-items: center;
+    justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .cycle-label { font-size:.72rem; font-weight:600; color:rgba(255,255,255,.55);
+    text-transform:uppercase; letter-spacing:.1em; margin-bottom:.2rem; }
+  .cycle-value { font-family:var(--font-heading); font-size:1rem;
+    font-weight:700; color:#fff; }
+  .cycle-badge { background:var(--vp-yellow); color:var(--vp-blue-dark);
+    font-family:var(--font-heading); font-size:.78rem; font-weight:700;
+    padding:.3rem .9rem; border-radius:20px; white-space:nowrap; }
+  .cycle-sep { width:1px; height:32px; background:rgba(255,255,255,.2); }
+
+  .section-title {
+    font-family:var(--font-heading); font-size:1.1rem; font-weight:700;
+    color:var(--vp-blue-dark); margin:1.75rem 0 .75rem;
+    display:flex; align-items:center; gap:.5rem;
+  }
+  .section-title i { color:var(--vp-yellow); }
+
+  .prob-bar-wrap { height:5px; background:var(--vp-border);
+    border-radius:3px; overflow:hidden; margin-top:.35rem; }
+  .prob-bar { height:100%; border-radius:3px; }
+  .prob-bar.on-track  { background:var(--vp-success); }
+  .prob-bar.at-risk   { background:var(--vp-warning); }
+  .prob-bar.off-track { background:var(--vp-danger);  }
+
+  .cf-row { display:flex; align-items:center; justify-content:space-between;
+    padding:.6rem 0; border-bottom:1px solid var(--vp-border);
+    font-size:.88rem; }
+  .cf-row:last-child { border-bottom:none; }
+  .cf-label { color:var(--vp-text-muted); }
+  .cf-value { font-family:var(--font-heading); font-weight:700;
+    color:var(--vp-blue-dark); }
+
+  .alloc-bar-row { margin-bottom:.65rem; }
+  .alloc-bar-label { display:flex; justify-content:space-between;
+    font-size:.82rem; margin-bottom:.25rem; }
+  .alloc-bar-wrap { height:8px; background:var(--vp-border);
+    border-radius:4px; overflow:hidden; }
+  .alloc-bar { height:100%; border-radius:4px; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if is_admin_view %}
+<div class="vp-card mb-3" style="background:var(--vp-blue-light); border-color:var(--vp-blue);">
+  <div class="vp-card-body" style="display:flex; align-items:center; justify-content:space-between; padding:0.85rem 1.25rem;">
+    <div style="display:flex; align-items:center; gap:0.6rem;">
+      <i class="bi bi-eye-fill" style="color:var(--vp-blue); font-size:1.1rem;"></i>
+      <span style="font-weight:600; color:var(--vp-blue-dark); font-size:0.9rem;">
+        Admin view — viewing {{ customer.name }}'s dashboard
+        <span style="color:var(--vp-text-muted); font-weight:500;">
+          ({{ customer.pan[:3] }}****{{ customer.pan[-3:] }})
+        </span>
+      </span>
+      {% if plan and plan.ingestion_source == 'manual' %}
+      <span class="vp-badge vp-badge-warning">Manual Entry — No Plan Uploaded</span>
+      {% endif %}
+    </div>
+    <a href="{{ url_for('admin.customers') }}" class="btn-vp-ghost" style="font-size:0.78rem; padding:0.3rem 0.85rem;">
+      <i class="bi bi-arrow-left"></i> Back to Customers
+    </a>
+  </div>
+</div>
+{% endif %}
+
+<!-- Page header -->
+<div class="vp-page-header">
+  <div>
+    <h2>{% if self_member %}Welcome, {{ self_member.member_name.split()[0] }}{% else %}My Dashboard{% endif %}</h2>
+    <p>Financial plan overview
+      {% if plan.risk_category %}
+      &nbsp;·&nbsp;
+      <span style="display:inline-flex; align-items:center; gap:.4rem;
+                   background:var(--vp-blue-light); color:var(--vp-blue);
+                   border-radius:20px; padding:.2rem .75rem; font-size:.78rem;
+                   font-weight:600;">
+        <i class="bi bi-shield-check"></i> {{ plan.risk_category }}
+      </span>
+      {% endif %}
+    </p>
+  </div>
+  <div class="text-end">
+    <div style="font-size:.75rem; color:var(--vp-text-muted);">Plan year</div>
+    <div style="font-weight:700; font-family:var(--font-heading);
+                font-size:1.1rem; color:var(--vp-blue-dark);">
+      {{ plan.plan_year }}
+    </div>
+  </div>
+</div>
+
+<!-- Cycle banner -->
+{% if cycle %}
+<div class="cycle-banner">
+  <div>
+    <div class="cycle-label">Plan Start</div>
+    <div class="cycle-value">
+      {% if plan.plan_start_date %}
+        {{ plan.plan_start_date.strftime('%d %b %Y') }}
+      {% else %}
+        {{ plan.plan_year }}
+      {% endif %}
+    </div>
+  </div>
+  <div class="cycle-sep d-none d-md-block"></div>
+  <div>
+    <div class="cycle-label">Cycle {{ cycle.cycle_number }}</div>
+    <div class="cycle-value">
+      {{ cycle.cycle_start.strftime('%d %b %Y') }} →
+      {{ cycle.cycle_end.strftime('%d %b %Y') }}
+    </div>
+  </div>
+  <div class="cycle-sep d-none d-md-block"></div>
+  <div>
+    <div class="cycle-label">Plan Horizon</div>
+    <div class="cycle-value">{{ plan.end_of_plan_year or '—' }}</div>
+  </div>
+  <div class="cycle-badge">
+    <i class="bi bi-arrow-up-right"></i> Cycle {{ cycle.cycle_number }}
+  </div>
+</div>
+{% endif %}
+
+
+<!-- ══ SECTION 1: GOAL SUMMARY TILES ══ -->
+<div class="row g-3 mb-2">
+  <div class="col-6 col-md-3">
+    <div class="vp-stat">
+      <div class="stat-icon" style="background:#E8F8F2;">
+        <i class="bi bi-check-circle-fill" style="color:var(--vp-success);"></i>
+      </div>
+      <div class="stat-label">On Track Goals</div>
+      <div class="stat-value" style="color:var(--vp-success);">{{ goal_summary.on_track }}</div>
+      <div class="stat-sub">of {{ goal_summary.total }} goals</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="vp-stat">
+      <div class="stat-icon" style="background:var(--vp-warning-bg);">
+        <i class="bi bi-exclamation-triangle-fill" style="color:var(--vp-warning);"></i>
+      </div>
+      <div class="stat-label">At Risk</div>
+      <div class="stat-value" style="color:var(--vp-warning);">{{ goal_summary.at_risk }}</div>
+      <div class="stat-sub">needs attention</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="vp-stat">
+      <div class="stat-icon">
+        <i class="bi bi-graph-up-arrow"></i>
+      </div>
+      <div class="stat-label">Net Invested</div>
+      <div class="stat-value">
+        ₹{{ "{:,.0f}".format(vasupradha_summary.net_invested or 0) }}
+      </div>
+      <div class="stat-sub">via Vasupradha</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="vp-stat">
+      <div class="stat-icon">
+        <i class="bi bi-wallet2"></i>
+      </div>
+      <div class="stat-label">Portfolio Value</div>
+      <div class="stat-value">
+        {% if portfolio_latest %}
+          ₹{{ "{:,.0f}".format(portfolio_latest.total_value or 0) }}
+        {% else %}—{% endif %}
+      </div>
+      <div class="stat-sub">
+        {% if portfolio_latest %}as of {{ portfolio_latest.snapshot_date }}{% else %}no snapshot yet{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ SECTION 2: GOAL TRACKING ══ -->
+<div class="section-title">
+  <i class="bi bi-flag-fill"></i> Goal Tracking
+</div>
+
+{% if goals %}
+<div class="vp-card vp-card-accent mb-3">
+  <div class="vp-table-wrap">
+    <table class="vp-table">
+      <thead>
+        <tr>
+          <th>Goal</th><th>Type</th><th>Year</th>
+          <th>Current Cost</th><th>Future Cost</th>
+          <th>Probability</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for g in goals %}
+        <tr>
+          <td>
+            <div style="font-weight:600; font-size:.88rem;">{{ g.goal_name }}</div>
+            {% if g.criticality %}
+            <div style="font-size:.72rem; color:var(--vp-text-muted);">{{ g.criticality }}</div>
+            {% endif %}
+          </td>
+          <td>
+            <span style="font-size:.72rem; font-weight:600; padding:.15rem .5rem;
+                         border-radius:4px; background:var(--vp-blue-light); color:var(--vp-blue);">
+              {% if g.goal_type == 'E' %}EMI{% elif g.goal_type == 'L' %}Lump Sum{% else %}{{ g.goal_type or '—' }}{% endif %}
+            </span>
+          </td>
+          <td style="font-family:var(--font-heading); font-weight:700;">{{ g.goal_year or '—' }}</td>
+          <td>₹{{ "{:,.0f}".format(g.current_price or 0) }}</td>
+          <td style="font-weight:600;">
+            ₹{{ "{:,.0f}".format(g.future_price or 0) }}
+            {% if g.inflation_rate %}<div style="font-size:.72rem; color:var(--vp-text-muted);">@{{ g.inflation_rate }}% p.a.</div>{% endif %}
+          </td>
+          <td style="min-width:110px;">
+            <div style="font-family:var(--font-heading); font-weight:700; font-size:.92rem;">{{ g.probability }}%</div>
+            <div class="prob-bar-wrap">
+              <div class="prob-bar {{ g.track_status | replace('_','-') }}"
+                   style="width:{{ [g.probability, 100]|min }}%;"></div>
+            </div>
+          </td>
+          <td>
+            {% if g.track_status == 'on_track' %}
+              <span class="vp-badge vp-badge-success">On Track</span>
+            {% elif g.track_status == 'at_risk' %}
+              <span class="vp-badge vp-badge-warning">At Risk</span>
+            {% else %}
+              <span class="vp-badge vp-badge-danger">Off Track</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="vp-card mb-3">
+  <div class="vp-card-body text-center py-3" style="color:var(--vp-text-muted);">
+    <i class="bi bi-flag" style="font-size:1.8rem;"></i>
+    <p class="mt-2 mb-0 small">No goals found. Upload a financial plan JSON to populate goals.</p>
+  </div>
+</div>
+{% endif %}
+
+
+<!-- ══ SECTION 3: VASUPRADHA INVESTMENTS + CASHFLOW ══ -->
+<div class="row g-3 mb-3">
+
+  <!-- Vasupradha Investments -->
+  <div class="col-md-5">
+    <div class="section-title" style="margin-top:1.25rem;">
+      <i class="bi bi-graph-up-arrow"></i> Vasupradha Investments
+    </div>
+    <div class="vp-card h-100">
+      <div class="vp-card-body">
+        <div class="cf-row">
+          <span class="cf-label"><i class="bi bi-arrow-down-circle me-1" style="color:var(--vp-success);"></i>Total Invested</span>
+          <span class="cf-value">₹{{ "{:,.0f}".format(vasupradha_summary.total_invested or 0) }}</span>
+        </div>
+        <div class="cf-row">
+          <span class="cf-label"><i class="bi bi-arrow-up-circle me-1" style="color:var(--vp-danger);"></i>Total Redeemed</span>
+          <span class="cf-value">₹{{ "{:,.0f}".format(vasupradha_summary.total_redeemed or 0) }}</span>
+        </div>
+        <div class="cf-row">
+          <span class="cf-label"><i class="bi bi-calculator me-1" style="color:var(--vp-blue);"></i>Net Invested</span>
+          <span class="cf-value text-vp-blue">₹{{ "{:,.0f}".format(vasupradha_summary.net_invested or 0) }}</span>
+        </div>
+        <div class="cf-row">
+          <span class="cf-label"><i class="bi bi-list-check me-1"></i>Transactions</span>
+          <span class="cf-value">{{ vasupradha_summary.transaction_count }}</span>
+        </div>
+        {% if vasupradha_txns %}
+        <hr class="vp-divider">
+        <div style="font-size:.75rem; font-weight:600; color:var(--vp-text-muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:.5rem;">Recent</div>
+        {% for t in vasupradha_txns[:5] %}
+        <div class="cf-row">
+          <span class="cf-label" style="font-size:.82rem;">{{ t.transaction_date }}</span>
+          <span style="font-family:var(--font-heading); font-weight:700; font-size:.88rem;
+                       color:{% if t.total_amount < 0 %}var(--vp-danger){% else %}var(--vp-success){% endif %};">
+            {% if t.total_amount < 0 %}−{% endif %}₹{{ "{:,.0f}".format(t.total_amount|abs) }}
+          </span>
+        </div>
+        {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Current Cycle Cashflow -->
+  <div class="col-md-7">
+    <div class="section-title" style="margin-top:1.25rem;">
+      <i class="bi bi-calendar2-week-fill"></i> Cycle {{ cycle.cycle_number if cycle else '' }} Cashflow
+    </div>
+    <div class="vp-card vp-card-accent-yellow h-100">
+      <div class="vp-card-body">
+        {% if current_year_cf %}
+        <div class="cf-row">
+          <span class="cf-label">Projected Investments</span>
+          <span class="cf-value">₹{{ "{:,.0f}".format(current_year_cf.projected_investments or 0) }}</span>
+        </div>
+        <div class="cf-row">
+          <span class="cf-label">Projected Expenses</span>
+          <span class="cf-value">₹{{ "{:,.0f}".format(current_year_cf.projected_expenses or 0) }}</span>
+        </div>
+        <div class="cf-row">
+          <span class="cf-label">Expected Portfolio Value</span>
+          <span class="cf-value text-vp-blue">₹{{ "{:,.0f}".format(current_year_cf.projected_portfolio_value or 0) }}</span>
+        </div>
+        {% if current_year_cf.actual_investments is not none %}
+        <hr class="vp-divider">
+        <div class="cf-row">
+          <span class="cf-label">Actual Investments</span>
+          <span class="cf-value" style="color:var(--vp-success);">₹{{ "{:,.0f}".format(current_year_cf.actual_investments or 0) }}</span>
+        </div>
+        {% endif %}
+        {% if current_year_cf.actual_portfolio_value is not none %}
+        <div class="cf-row">
+          <span class="cf-label">Actual Portfolio Value</span>
+          <span class="cf-value">₹{{ "{:,.0f}".format(current_year_cf.actual_portfolio_value or 0) }}</span>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="text-center py-3" style="color:var(--vp-text-muted);">
+          <i class="bi bi-calendar-x" style="font-size:1.8rem;"></i>
+          <p class="mt-2 mb-0 small">No cashflow data for {{ cycle.current_year if cycle else 'this year' }}.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ SECTION 4: PORTFOLIO VALUE ══ -->
+<div class="section-title">
+  <i class="bi bi-pie-chart-fill"></i> Portfolio Value
+</div>
+<div class="row g-3 mb-3">
+  <div class="col-md-7">
+    <div class="vp-card h-100">
+      <div class="vp-card-header">
+        <h5 class="vp-card-title"><i class="bi bi-bank2"></i> Account Breakdown</h5>
+        {% if portfolio_latest %}
+        <span class="vp-badge vp-badge-blue">as of {{ portfolio_latest.snapshot_date }}</span>
+        {% endif %}
+      </div>
+      {% if portfolio_accounts %}
+      <div class="vp-table-wrap">
+        <table class="vp-table">
+          <thead>
+            <tr><th>Account</th><th>Value</th></tr>
+          </thead>
+          <tbody>
+            {% for a in portfolio_accounts %}
+            <tr>
+              <td style="font-family:monospace; font-size:.85rem;">{{ a.pan_source }}</td>
+              <td style="font-family:var(--font-heading); font-weight:700;">
+                ₹{{ "{:,.0f}".format(a.current_value or 0) }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>Total</td>
+              <td style="font-family:var(--font-heading); font-weight:800; color:var(--vp-blue-dark);">
+                ₹{{ "{:,.0f}".format(portfolio_latest.total_value or 0) if portfolio_latest else '—' }}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      {% else %}
+      <div class="vp-card-body text-center py-3" style="color:var(--vp-text-muted);">
+        <p class="small mb-0">No portfolio snapshot uploaded yet.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Asset allocation -->
+  <div class="col-md-5">
+    <div class="vp-card h-100">
+      <div class="vp-card-header">
+        <h5 class="vp-card-title"><i class="bi bi-pie-chart-fill"></i> Asset Allocation</h5>
+        {% if allocation_total.snapshot_date %}
+        <span class="vp-badge vp-badge-yellow">{{ allocation_total.snapshot_date }}</span>
+        {% endif %}
+      </div>
+      <div class="vp-card-body">
+        {% if allocation_rows %}
+          {% set total = allocation_total.total_value or 1 %}
+          {% for row in allocation_rows %}
+          <div class="alloc-bar-row">
+            <div class="alloc-bar-label">
+              <span style="font-size:.83rem; color:var(--vp-text-mid);">{{ row.asset_name }}</span>
+              <span style="font-family:var(--font-heading); font-weight:700; font-size:.83rem;">
+                {{ row.current_pct }}%
+              </span>
+            </div>
+            <div class="alloc-bar-wrap">
+              <div class="alloc-bar"
+                   style="width:{{ [row.current_pct, 100]|min }}%;
+                          background:var(--vp-blue); opacity:{{ 0.5 + loop.index0 * 0.1 }};"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:.72rem; color:var(--vp-text-muted); margin-top:.15rem;">
+              <span>₹{{ "{:,.0f}".format(row.current_value or 0) }}</span>
+              <span>Target {{ row.target_pct }}%</span>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+        <div class="text-center py-3" style="color:var(--vp-text-muted);">
+          <p class="small mb-0">No allocation data uploaded yet.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ SECTION 5: CURRENT FINANCIAL ASSETS ══ -->
+<div class="section-title" id="current-assets">
+  <i class="bi bi-wallet-fill"></i> Current Financial Assets
+</div>
+<div class="vp-card vp-card-accent mb-3">
+  {% if current_assets_with_id or is_admin_view %}
+  <div class="vp-table-wrap">
+    <table class="vp-table">
+      <thead>
+        <tr>
+          <th>Asset</th><th>Class</th><th class="text-end">Value</th>
+          {% if is_admin_view %}<th style="width:120px;">Actions</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in current_assets_with_id %}
+        <tr id="cfa-row-{{ a.id }}">
+          <!-- Display row -->
+          <td class="cfa-display-{{ a.id }}">
+            <span style="font-weight:500;">{{ a.asset_name }}</span>
+          </td>
+          <td class="cfa-display-{{ a.id }}">
+            <span class="vp-badge {% if a.asset_class == 'Equity' %}vp-badge-blue{% elif a.asset_class == 'Debt' %}vp-badge-warning{% else %}vp-badge-success{% endif %}">
+              {{ a.asset_class or '—' }}
+            </span>
+          </td>
+          <td class="text-end cfa-display-{{ a.id }}" style="font-family:var(--font-heading); font-weight:700;">
+            ₹{{ "{:,.0f}".format(a.current_value or 0) }}
+          </td>
+          {% if is_admin_view %}
+          <td class="cfa-display-{{ a.id }}">
+            <button class="btn-vp-ghost" style="font-size:0.75rem; padding:0.2rem 0.55rem;"
+                    onclick="cfaEdit({{ a.id }})">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <form method="POST" action="{{ url_for('admin.delete_current_asset_route', row_id=a.id) }}"
+                  style="display:inline;" onsubmit="return confirm('Remove this asset?');">
+              <input type="hidden" name="customer_id" value="{{ customer_id }}">
+              <button type="submit" class="btn-vp-ghost" style="font-size:0.75rem; padding:0.2rem 0.55rem; color:var(--vp-danger);">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+
+        {% if is_admin_view %}
+        <!-- Edit row (hidden by default) -->
+        <tr id="cfa-edit-{{ a.id }}" style="display:none; background:var(--vp-blue-light);">
+          <td colspan="4">
+            <form method="POST" action="{{ url_for('admin.edit_current_asset_route', row_id=a.id) }}"
+                  class="d-flex gap-2 align-items-center flex-wrap">
+              <input type="hidden" name="customer_id" value="{{ customer_id }}">
+              <input type="text" name="asset_name" value="{{ a.asset_name }}"
+                     class="vp-input" style="max-width:200px;" required>
+              <select name="asset_class" class="vp-input" style="max-width:130px;">
+                {% for cls in ['Equity','Debt','Liquid','Gold','Hybrid','Other'] %}
+                <option value="{{ cls }}" {% if a.asset_class == cls %}selected{% endif %}>{{ cls }}</option>
+                {% endfor %}
+              </select>
+              <input type="number" step="0.01" name="current_value" value="{{ a.current_value }}"
+                     class="vp-input" style="max-width:160px;" required>
+              <button type="submit" class="btn-vp-primary" style="font-size:0.8rem; padding:0.35rem 0.9rem;">
+                <i class="bi bi-check-lg"></i> Save
+              </button>
+              <button type="button" class="btn-vp-ghost" style="font-size:0.8rem; padding:0.35rem 0.9rem;"
+                      onclick="cfaCancel({{ a.id }})">
+                Cancel
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+      {% if current_assets_with_id %}
+      <tfoot>
+        <tr>
+          <td colspan="{{ '2' if not is_admin_view else '3' }}">Total</td>
+          <td class="text-end" style="font-family:var(--font-heading); font-weight:800; color:var(--vp-blue-dark);">
+            ₹{{ "{:,.0f}".format(current_assets_total or 0) }}
+          </td>
+          {% if is_admin_view %}<td></td>{% endif %}
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+
+  {% if is_admin_view %}
+  <!-- Add new asset form -->
+  <div class="vp-card-body" style="border-top:1px solid var(--vp-border);">
+    <form method="POST" action="{{ url_for('admin.add_current_asset_route', customer_id=customer_id) }}"
+          class="d-flex gap-2 align-items-center flex-wrap">
+      <input type="text" name="asset_name" placeholder="Asset name"
+             class="vp-input" style="max-width:200px;" required>
+      <select name="asset_class" class="vp-input" style="max-width:130px;">
+        {% for cls in ['Equity','Debt','Liquid','Gold','Hybrid','Other'] %}
+        <option value="{{ cls }}">{{ cls }}</option>
+        {% endfor %}
+      </select>
+      <input type="number" step="0.01" name="current_value" placeholder="Value"
+             class="vp-input" style="max-width:160px;" required>
+      <button type="submit" class="btn-vp-yellow" style="font-size:0.85rem; padding:0.45rem 1.1rem;">
+        <i class="bi bi-plus-lg"></i> Add Asset
+      </button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="vp-card-body text-center py-3" style="color:var(--vp-text-muted);">
+    <p class="small mb-0">No current asset data. Upload a financial plan JSON to populate.</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ══ SECTION 6: HELD AWAY ASSETS ══ -->
+<div class="section-title" id="other-assets">
+  <i class="bi bi-safe2-fill"></i> Held Away Assets
+</div>
+<div class="vp-card mb-3">
+  {% if other_assets_with_id or is_admin_view %}
+  <div class="vp-table-wrap">
+    <table class="vp-table">
+      <thead>
+        <tr>
+          <th>Asset</th><th>Type</th>
+          <th>Maturity</th><th>Maturity Value</th>
+          {% if is_admin_view %}<th style="width:120px;">Actions</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in other_assets_with_id %}
+        <tr id="oa-row-{{ a.id }}">
+          <!-- Display row -->
+          <td class="oa-display-{{ a.id }}" style="font-weight:500;">{{ a.asset_name }}</td>
+          <td class="oa-display-{{ a.id }}" style="font-size:0.83rem; color:var(--vp-text-muted);">
+            {{ a.asset_type or '—' }}
+          </td>
+          <td class="oa-display-{{ a.id }}" style="font-family:var(--font-heading); font-weight:700;">
+            {{ a.maturity_date.strftime('%Y') if a.maturity_date else '—' }}
+          </td>
+          <td class="oa-display-{{ a.id }}" style="font-family:var(--font-heading); font-weight:700;">
+            ₹{{ "{:,.0f}".format(a.maturity_value or 0) }}
+          </td>
+          {% if is_admin_view %}
+          <td class="oa-display-{{ a.id }}">
+            <button class="btn-vp-ghost" style="font-size:0.75rem; padding:0.2rem 0.55rem;"
+                    onclick="oaEdit({{ a.id }})">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <form method="POST" action="{{ url_for('admin.delete_other_asset_route', row_id=a.id) }}"
+                  style="display:inline;" onsubmit="return confirm('Remove this asset?');">
+              <input type="hidden" name="customer_id" value="{{ customer_id }}">
+              <button type="submit" class="btn-vp-ghost" style="font-size:0.75rem; padding:0.2rem 0.55rem; color:var(--vp-danger);">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+
+        {% if is_admin_view %}
+        <!-- Edit row -->
+        <tr id="oa-edit-{{ a.id }}" style="display:none; background:var(--vp-blue-light);">
+          <td colspan="5">
+            <form method="POST" action="{{ url_for('admin.edit_other_asset_route', row_id=a.id) }}"
+                  class="d-flex gap-2 align-items-center flex-wrap">
+              <input type="hidden" name="customer_id" value="{{ customer_id }}">
+              <input type="text" name="asset_name" value="{{ a.asset_name }}"
+                     class="vp-input" style="max-width:170px;" placeholder="Asset name" required>
+              <input type="text" name="asset_type" value="{{ a.asset_type or '' }}"
+                     class="vp-input" style="max-width:140px;" placeholder="Type">
+              <input type="number" step="0.01" name="current_value" value="{{ a.current_value }}"
+                     class="vp-input" style="max-width:130px;" placeholder="Current value">
+              <input type="number" step="0.01" name="maturity_value" value="{{ a.maturity_value }}"
+                     class="vp-input" style="max-width:130px;" placeholder="Maturity value">
+              <input type="number" step="0.01" name="annual_contribution" value="{{ a.annual_contribution }}"
+                     class="vp-input" style="max-width:130px;" placeholder="Annual contribution">
+              <input type="date" name="maturity_date"
+                     value="{{ a.maturity_date.strftime('%Y-%m-%d') if a.maturity_date else '' }}"
+                     class="vp-input" style="max-width:150px;">
+              <input type="text" name="notes" value="{{ a.notes or '' }}"
+                     class="vp-input" style="max-width:160px;" placeholder="Notes">
+              <button type="submit" class="btn-vp-primary" style="font-size:0.8rem; padding:0.35rem 0.9rem;">
+                <i class="bi bi-check-lg"></i> Save
+              </button>
+              <button type="button" class="btn-vp-ghost" style="font-size:0.8rem; padding:0.35rem 0.9rem;"
+                      onclick="oaCancel({{ a.id }})">
+                Cancel
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if is_admin_view %}
+  <!-- Add new asset form -->
+  <div class="vp-card-body" style="border-top:1px solid var(--vp-border);">
+    <form method="POST" action="{{ url_for('admin.add_other_asset_route', customer_id=customer_id) }}"
+          class="d-flex gap-2 align-items-center flex-wrap">
+      <input type="text" name="asset_name" placeholder="Asset name"
+             class="vp-input" style="max-width:170px;" required>
+      <input type="text" name="asset_type" placeholder="Type (e.g. FD, Insurance)"
+             class="vp-input" style="max-width:160px;">
+      <input type="number" step="0.01" name="current_value" placeholder="Current value"
+             class="vp-input" style="max-width:130px;">
+      <input type="number" step="0.01" name="maturity_value" placeholder="Maturity value"
+             class="vp-input" style="max-width:130px;">
+      <input type="number" step="0.01" name="annual_contribution" placeholder="Annual contribution"
+             class="vp-input" style="max-width:140px;">
+      <input type="date" name="maturity_date" class="vp-input" style="max-width:150px;">
+      <input type="text" name="notes" placeholder="Notes"
+             class="vp-input" style="max-width:160px;">
+      <button type="submit" class="btn-vp-yellow" style="font-size:0.85rem; padding:0.45rem 1.1rem;">
+        <i class="bi bi-plus-lg"></i> Add Asset
+      </button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="vp-card-body text-center py-3" style="color:var(--vp-text-muted);">
+    <p class="small mb-0">No held away assets on record.</p>
+  </div>
+  {% endif %}
+</div>
+
+
+<!-- ══ SECTION 7: CURRENT PLAN + ARCHIVED PLANS ══ -->
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="section-title" style="margin-top:1.25rem;">
+      <i class="bi bi-file-earmark-text-fill"></i> Current Financial Plan
+    </div>
+    <div class="vp-card">
+      <div class="vp-card-body">
+        <div class="cf-row">
+          <span class="cf-label">Plan Year</span>
+          <span class="cf-value">{{ plan.plan_year }}</span>
+        </div>
+        {% if plan.plan_start_date %}
+        <div class="cf-row">
+          <span class="cf-label">Started</span>
+          <span class="cf-value" style="font-size:.88rem;">{{ plan.plan_start_date.strftime('%d %b %Y') }}</span>
+        </div>
+        {% endif %}
+        {% if plan.advisor_comment %}
+        <hr class="vp-divider">
+        <p style="font-size:.85rem; color:var(--vp-text-mid); line-height:1.7; margin:0;">
+          {{ plan.advisor_comment }}
+        </p>
+        {% endif %}
+        {% if plan.html_file_path or plan.file_path %}
+        <hr class="vp-divider">
+        <a href="{{ url_for('customer.view_plan', plan_id=plan.id) }}"
+           class="btn-vp-primary" style="width:100%; justify-content:center;">
+          <i class="bi bi-file-earmark-text"></i> View Full Plan Report
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="section-title" style="margin-top:1.25rem;">
+      <i class="bi bi-archive-fill"></i> Archived Plans
+    </div>
+    <div class="vp-card">
+      {% if archived_plans %}
+      <div class="vp-table-wrap">
+        <table class="vp-table">
+          <thead><tr><th>Year</th><th>Uploaded</th><th></th></tr></thead>
+          <tbody>
+            {% for ap in archived_plans %}
+            <tr>
+              <td style="font-family:var(--font-heading); font-weight:700;">{{ ap.plan_year }}</td>
+              <td style="font-size:.82rem; color:var(--vp-text-muted);">
+                {{ ap.uploaded_at.strftime('%d %b %Y') if ap.uploaded_at else '—' }}
+              </td>
+              <td>
+                {% if ap.html_file_path or ap.file_path %}
+                <a href="{{ url_for('customer.view_plan', plan_id=ap.id) }}"
+                   class="btn-vp-ghost" style="font-size:.78rem; padding:.25rem .65rem;">
+                  <i class="bi bi-eye"></i> View
+                </a>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="vp-card-body text-center py-3" style="color:var(--vp-text-muted);">
+        <p class="small mb-0">No archived plans yet.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+// Animate probability bars
+document.querySelectorAll('.prob-bar').forEach(function(bar) {
+  const w = bar.style.width;
+  bar.style.width = '0';
+  setTimeout(function() { bar.style.width = w; }, 100);
+});
+
+// Current Financial Assets (CFA) Toggles
+function cfaEdit(id) {
+    document.querySelectorAll('.cfa-display-' + id).forEach(el => el.style.display = 'none');
+    document.getElementById('cfa-edit-' + id).style.display = 'table-row';
+}
+function cfaCancel(id) {
+    document.querySelectorAll('.cfa-display-' + id).forEach(el => el.style.display = 'table-cell');
+    document.getElementById('cfa-edit-' + id).style.display = 'none';
+}
+
+// Held Away Assets (OA) Toggles
+function oaEdit(id) {
+    document.querySelectorAll('.oa-display-' + id).forEach(el => el.style.display = 'none');
+    document.getElementById('oa-edit-' + id).style.display = 'table-row';
+}
+function oaCancel(id) {
+    document.querySelectorAll('.oa-display-' + id).forEach(el => el.style.display = 'table-cell');
+    document.getElementById('oa-edit-' + id).style.display = 'none';
+}
+</script>
+
+{% endblock %}
+
+

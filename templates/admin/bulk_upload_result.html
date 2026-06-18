@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}Bulk Upload Results — Track & Act Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+  .result-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.65rem 0; border-bottom: 1px solid var(--vp-border);
+    font-size: 0.88rem; gap: 1rem;
+  }
+  .result-row:last-child { border-bottom: none; }
+  .result-file { font-family: monospace; font-size: 0.82rem; color: var(--vp-text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="vp-page-header">
+  <div>
+    <h2>Bulk Upload Results</h2>
+    <p>Processing summary for all files in the ZIP</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('admin.upload') }}" class="btn-vp-outline">
+      <i class="bi bi-cloud-arrow-up-fill"></i> Upload More
+    </a>
+    <a href="{{ url_for('admin.dashboard') }}" class="btn-vp-primary">
+      <i class="bi bi-speedometer2"></i> Dashboard
+    </a>
+  </div>
+</div>
+
+<!-- Per-customer plan files -->
+<div class="vp-card vp-card-accent mb-3">
+  <div class="vp-card-header">
+    <h5 class="vp-card-title"><i class="bi bi-file-earmark-text"></i> Financial Plans (JSON)</h5>
+    <span class="vp-badge vp-badge-blue">{{ results.plan_json|length }} files</span>
+  </div>
+  <div class="vp-card-body">
+    {% if results.plan_json %}
+      {% for r in results.plan_json %}
+      <div class="result-row">
+        <div>
+          <div class="result-file">{{ r.filename }}</div>
+          <div style="font-size:0.82rem; color:var(--vp-text-muted);">
+            PAN: {{ r.pan[:3] }}****{{ r.pan[-3:] if r.pan and r.pan|length >= 6 else r.pan }}
+            {% if r.customer_name %} — {{ r.customer_name }}{% endif %}
+          </div>
+        </div>
+        <div class="text-end">
+          {% if r.status == 'imported' %}
+            <span class="vp-badge vp-badge-success">Imported</span>
+          {% elif r.status == 'saved' %}
+            <span class="vp-badge vp-badge-success">Saved</span>
+          {% elif r.status == 'unmatched' %}
+            <span class="vp-badge vp-badge-warning">Unmatched PAN</span>
+          {% else %}
+            <span class="vp-badge vp-badge-danger">Failed</span>
+          {% endif %}
+          <div style="font-size:0.78rem; color:var(--vp-text-muted); margin-top:0.2rem;">
+            {{ r.detail }}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+    <p class="text-center small mb-0" style="color:var(--vp-text-muted);">No plan JSON files found.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Per-customer HTML reports -->
+<div class="vp-card mb-3">
+  <div class="vp-card-header">
+    <h5 class="vp-card-title"><i class="bi bi-filetype-html"></i> Plan Reports (HTML)</h5>
+    <span class="vp-badge vp-badge-yellow">{{ results.report_html|length }} files</span>
+  </div>
+  <div class="vp-card-body">
+    {% if results.report_html %}
+      {% for r in results.report_html %}
+      <div class="result-row">
+        <div>
+          <div class="result-file">{{ r.filename }}</div>
+          <div style="font-size:0.82rem; color:var(--vp-text-muted);">
+            PAN: {{ r.pan[:3] }}****{{ r.pan[-3:] if r.pan and r.pan|length >= 6 else r.pan }}
+            {% if r.customer_name %} — {{ r.customer_name }}{% endif %}
+          </div>
+        </div>
+        <div class="text-end">
+          {% if r.status == 'saved' %}
+            <span class="vp-badge vp-badge-success">Saved</span>
+          {% elif r.status == 'unmatched' %}
+            <span class="vp-badge vp-badge-warning">Unmatched PAN</span>
+          {% else %}
+            <span class="vp-badge vp-badge-danger">Failed</span>
+          {% endif %}
+          <div style="font-size:0.78rem; color:var(--vp-text-muted); margin-top:0.2rem;">{{ r.detail }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+    <p class="text-center small mb-0" style="color:var(--vp-text-muted);">No report HTML files found.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- System-wide files -->
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="vp-card h-100">
+      <div class="vp-card-header">
+        <h5 class="vp-card-title"><i class="bi bi-arrow-left-right"></i> Transactions</h5>
+      </div>
+      <div class="vp-card-body">
+        {% if results.transactions %}
+        <div class="result-file mb-2">{{ results.transactions.filename }}</div>
+        <div class="cf-row"><span class="cf-label">Inserted</span>
+          <span class="cf-value" style="color:var(--vp-success);">{{ results.transactions.inserted }}</span></div>
+        <div class="cf-row"><span class="cf-label">Skipped</span>
+          <span class="cf-value" style="color:var(--vp-warning);">{{ results.transactions.skipped }}</span></div>
+        {% else %}
+        <p class="text-center small mb-0" style="color:var(--vp-text-muted);">Not in ZIP</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="vp-card h-100">
+      <div class="vp-card-header">
+        <h5 class="vp-card-title"><i class="bi bi-graph-up-arrow"></i> Portfolio</h5>
+      </div>
+      <div class="vp-card-body">
+        {% if results.portfolio %}
+        <div class="result-file mb-2">{{ results.portfolio.filename }}</div>
+        <div class="cf-row"><span class="cf-label">Inserted</span>
+          <span class="cf-value" style="color:var(--vp-success);">{{ results.portfolio.inserted }}</span></div>
+        <div class="cf-row"><span class="cf-label">Skipped</span>
+          <span class="cf-value" style="color:var(--vp-warning);">{{ results.portfolio.skipped }}</span></div>
+        {% else %}
+        <p class="text-center small mb-0" style="color:var(--vp-text-muted);">Not in ZIP</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="vp-card h-100">
+      <div class="vp-card-header">
+        <h5 class="vp-card-title"><i class="bi bi-pie-chart-fill"></i> Asset Allocation</h5>
+      </div>
+      <div class="vp-card-body">
+        {% if results.asset_allocation %}
+        <div class="result-file mb-2">{{ results.asset_allocation.filename }}</div>
+        <div class="cf-row"><span class="cf-label">Inserted</span>
+          <span class="cf-value" style="color:var(--vp-success);">{{ results.asset_allocation.inserted }}</span></div>
+        <div class="cf-row"><span class="cf-label">Skipped</span>
+          <span class="cf-value" style="color:var(--vp-warning);">{{ results.asset_allocation.skipped }}</span></div>
+        {% else %}
+        <p class="text-center small mb-0" style="color:var(--vp-text-muted);">Not in ZIP</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Unrecognized files -->
+{% if results.unrecognized %}
+<div class="vp-card">
+  <div class="vp-card-header">
+    <h5 class="vp-card-title"><i class="bi bi-question-circle"></i> Unrecognized Files</h5>
+    <span class="vp-badge vp-badge-danger">{{ results.unrecognized|length }}</span>
+  </div>
+  <div class="vp-card-body">
+    {% for f in results.unrecognized %}
+    <div class="result-file" style="padding:0.3rem 0;">{{ f }}</div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

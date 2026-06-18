@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Customers — Track & Act Admin{% endblock %}
+
+{% block content %}
+<div class="vp-page-header">
+  <div>
+    <h2>All Customers</h2>
+    <p>{{ customers|length }} registered accounts</p>
+  </div>
+  <a href="{{ url_for('admin.upload') }}" class="btn-vp-yellow">
+    <i class="bi bi-cloud-arrow-up-fill"></i> Upload Files
+  </a>
+</div>
+
+<div class="vp-card vp-card-accent">
+  <div class="vp-table-wrap">
+    <table class="vp-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>PAN</th>
+          <th>Email</th>
+          <th>Mobile</th>
+          <th>Plan Start</th>
+          <th>Risk Profile</th>
+          <th>Status</th>
+          <th style="width: 120px;">Actions</th> </tr>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in customers %}
+        <tr>
+          <td style="font-weight:600;">{{ c.name }}</td>
+          <td>
+            <code style="font-size:0.8rem; color:var(--vp-blue);">
+              {{ c.pan[:3] }}****{{ c.pan[-3:] }}
+            </code>
+          </td>
+          <td style="color:var(--vp-text-muted); font-size:0.85rem;">
+            {{ c.email or '—' }}
+          </td>
+          <td style="color:var(--vp-text-muted); font-size:0.85rem;">
+            {{ c.mobile or '—' }}
+          </td>
+          <td style="font-size:0.85rem;">
+            {% if c.plan_start_date %}
+              {{ c.plan_start_date.strftime('%d %b %Y') }}
+            {% else %}
+              <span style="color:var(--vp-text-muted);">No plan</span>
+            {% endif %}
+          </td>
+          <td style="font-size:0.82rem;">{{ c.risk_category or '—' }}</td>
+          <td>
+            {% if c.is_active %}
+              <span class="vp-badge vp-badge-success">Active</span>
+            {% else %}
+              <span class="vp-badge vp-badge-danger">Inactive</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="text-center"
+              style="color:var(--vp-text-muted); padding:2rem;">
+            No customers found.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

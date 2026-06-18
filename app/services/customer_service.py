@@ -1,6 +1,5 @@
 from app.database import query
 
-
 def get_customer_by_id(customer_id):
     """
     Fetch a single customer's full profile by their ID.
@@ -11,7 +10,6 @@ def get_customer_by_id(customer_id):
         params=(customer_id,),
         fetchone=True
     )
-
 
 def get_customer_by_email(email):
     """
@@ -24,7 +22,6 @@ def get_customer_by_email(email):
         fetchone=True
     )
 
-
 def get_customer_by_mobile(mobile):
     """
     Fetch a customer by mobile number.
@@ -36,12 +33,24 @@ def get_customer_by_mobile(mobile):
         fetchone=True
     )
 
-
 def get_all_customers():
     """
     Fetch all customers — used by admin panel.
-    Returns a list of dicts.
+    Upgraded to include PAN, plan status, and risk category for the UI.
     """
-    return query(
-        "SELECT id, name, email, mobile, created_at FROM customers ORDER BY created_at DESC"
-    )
+    sql = """
+        SELECT 
+            c.id, 
+            c.pan, 
+            c.name, 
+            c.email, 
+            c.mobile, 
+            c.is_active,
+            fp.uploaded_at AS plan_start_date,
+            (fp.id IS NOT NULL) AS has_active_plan,
+            NULL AS risk_category 
+        FROM customers c
+        LEFT JOIN financial_plans fp ON c.id = fp.customer_id AND fp.is_current = 1
+        ORDER BY c.created_at DESC
+    """
+    return query(sql)
