@@ -31,7 +31,7 @@
   .prob-bar { height:100%; border-radius:3px; }
   .prob-bar.on-track  { background:var(--vp-success); }
   .prob-bar.at-risk   { background:var(--vp-warning); }
-  .prob-bar.off-track { background:var(--vp-danger);  }
+  .prob-bar.off-track { background:var(--vp-danger); }
 
   .cf-row { display:flex; align-items:center; justify-content:space-between;
     padding:.6rem 0; border-bottom:1px solid var(--vp-border);
@@ -73,7 +73,6 @@
 </div>
 {% endif %}
 
-<!-- Page header -->
 <div class="vp-page-header">
   <div>
     <h2>{% if self_member %}Welcome, {{ self_member.member_name.split()[0] }}{% else %}My Dashboard{% endif %}</h2>
@@ -98,7 +97,6 @@
   </div>
 </div>
 
-<!-- Cycle banner -->
 {% if cycle %}
 <div class="cycle-banner">
   <div>
@@ -131,7 +129,6 @@
 {% endif %}
 
 
-<!-- ══ SECTION 1: GOAL SUMMARY TILES ══ -->
 <div class="row g-3 mb-2">
   <div class="col-6 col-md-3">
     <div class="vp-stat">
@@ -155,22 +152,20 @@
   </div>
   <div class="col-6 col-md-3">
     <div class="vp-stat">
-      <div class="stat-icon">
-        <i class="bi bi-graph-up-arrow"></i>
-      </div>
+      <div class="stat-icon"><i class="bi bi-graph-up-arrow"></i></div>
       <div class="stat-label">Net Invested</div>
       <div class="stat-value">
         ₹{{ "{:,.0f}".format(vasupradha_summary.net_invested or 0) }}
       </div>
-      <div class="stat-sub">via Vasupradha</div>
+      <div class="stat-sub">
+        monthly avg. ₹{{ "{:,.0f}".format(vasupradha_summary.monthly_average or 0) }}
+      </div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="vp-stat">
-      <div class="stat-icon">
-        <i class="bi bi-wallet2"></i>
-      </div>
-      <div class="stat-label">Portfolio Value</div>
+      <div class="stat-icon"><i class="bi bi-wallet2"></i></div>
+      <div class="stat-label">Portfolio Value <br><span style="font-size: 0.7rem; color: var(--vp-text-muted);">(Vasupradha Investments)</span></div>
       <div class="stat-value">
         {% if portfolio_latest %}
           ₹{{ "{:,.0f}".format(portfolio_latest.total_value or 0) }}
@@ -184,7 +179,6 @@
 </div>
 
 
-<!-- ══ SECTION 2: GOAL TRACKING ══ -->
 <div class="section-title">
   <i class="bi bi-flag-fill"></i> Goal Tracking
 </div>
@@ -225,7 +219,7 @@
             <div style="font-family:var(--font-heading); font-weight:700; font-size:.92rem;">{{ g.probability }}%</div>
             <div class="prob-bar-wrap">
               <div class="prob-bar {{ g.track_status | replace('_','-') }}"
-                   style="width:{{ [g.probability, 100]|min }}%;"></div>
+                   style="width:{{ [g.probability | default(0) | float, 100]|min }}%;"></div>
             </div>
           </td>
           <td>
@@ -253,15 +247,13 @@
 {% endif %}
 
 
-<!-- ══ SECTION 3: VASUPRADHA INVESTMENTS + CASHFLOW ══ -->
 <div class="row g-3 mb-3">
 
-  <!-- Vasupradha Investments -->
-  <div class="col-md-5">
+  <div class="col-md-5 d-flex flex-column">
     <div class="section-title" style="margin-top:1.25rem;">
       <i class="bi bi-graph-up-arrow"></i> Vasupradha Investments
     </div>
-    <div class="vp-card h-100">
+    <div class="vp-card flex-grow-1">
       <div class="vp-card-body">
         <div class="cf-row">
           <span class="cf-label"><i class="bi bi-arrow-down-circle me-1" style="color:var(--vp-success);"></i>Total Invested</span>
@@ -285,8 +277,7 @@
         {% for t in vasupradha_txns[:5] %}
         <div class="cf-row">
           <span class="cf-label" style="font-size:.82rem;">{{ t.transaction_date }}</span>
-          <span style="font-family:var(--font-heading); font-weight:700; font-size:.88rem;
-                       color:{% if t.total_amount < 0 %}var(--vp-danger){% else %}var(--vp-success){% endif %};">
+          <span style="font-family:var(--font-heading); font-weight:700; font-size:.88rem; color:{% if t.total_amount < 0 %}var(--vp-danger){% else %}var(--vp-success){% endif %};">
             {% if t.total_amount < 0 %}−{% endif %}₹{{ "{:,.0f}".format(t.total_amount|abs) }}
           </span>
         </div>
@@ -296,105 +287,15 @@
     </div>
   </div>
 
-  <!-- Current Cycle Cashflow -->
-  <div class="col-md-7">
+  <div class="col-md-7 d-flex flex-column">
     <div class="section-title" style="margin-top:1.25rem;">
-      <i class="bi bi-calendar2-week-fill"></i> Cycle {{ cycle.cycle_number if cycle else '' }} Cashflow
+      <i class="bi bi-pie-chart-fill"></i> Asset Allocation
     </div>
-    <div class="vp-card vp-card-accent-yellow h-100">
-      <div class="vp-card-body">
-        {% if current_year_cf %}
-        <div class="cf-row">
-          <span class="cf-label">Projected Investments</span>
-          <span class="cf-value">₹{{ "{:,.0f}".format(current_year_cf.projected_investments or 0) }}</span>
-        </div>
-        <div class="cf-row">
-          <span class="cf-label">Projected Expenses</span>
-          <span class="cf-value">₹{{ "{:,.0f}".format(current_year_cf.projected_expenses or 0) }}</span>
-        </div>
-        <div class="cf-row">
-          <span class="cf-label">Expected Portfolio Value</span>
-          <span class="cf-value text-vp-blue">₹{{ "{:,.0f}".format(current_year_cf.projected_portfolio_value or 0) }}</span>
-        </div>
-        {% if current_year_cf.actual_investments is not none %}
-        <hr class="vp-divider">
-        <div class="cf-row">
-          <span class="cf-label">Actual Investments</span>
-          <span class="cf-value" style="color:var(--vp-success);">₹{{ "{:,.0f}".format(current_year_cf.actual_investments or 0) }}</span>
-        </div>
-        {% endif %}
-        {% if current_year_cf.actual_portfolio_value is not none %}
-        <div class="cf-row">
-          <span class="cf-label">Actual Portfolio Value</span>
-          <span class="cf-value">₹{{ "{:,.0f}".format(current_year_cf.actual_portfolio_value or 0) }}</span>
-        </div>
-        {% endif %}
-        {% else %}
-        <div class="text-center py-3" style="color:var(--vp-text-muted);">
-          <i class="bi bi-calendar-x" style="font-size:1.8rem;"></i>
-          <p class="mt-2 mb-0 small">No cashflow data for {{ cycle.current_year if cycle else 'this year' }}.</p>
-        </div>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-</div>
-
-
-<!-- ══ SECTION 4: PORTFOLIO VALUE ══ -->
-<div class="section-title">
-  <i class="bi bi-pie-chart-fill"></i> Portfolio Value
-</div>
-<div class="row g-3 mb-3">
-  <div class="col-md-7">
-    <div class="vp-card h-100">
+    <div class="vp-card flex-grow-1">
       <div class="vp-card-header">
-        <h5 class="vp-card-title"><i class="bi bi-bank2"></i> Account Breakdown</h5>
-        {% if portfolio_latest %}
-        <span class="vp-badge vp-badge-blue">as of {{ portfolio_latest.snapshot_date }}</span>
-        {% endif %}
-      </div>
-      {% if portfolio_accounts %}
-      <div class="vp-table-wrap">
-        <table class="vp-table">
-          <thead>
-            <tr><th>Account</th><th>Value</th></tr>
-          </thead>
-          <tbody>
-            {% for a in portfolio_accounts %}
-            <tr>
-              <td style="font-family:monospace; font-size:.85rem;">{{ a.pan_source }}</td>
-              <td style="font-family:var(--font-heading); font-weight:700;">
-                ₹{{ "{:,.0f}".format(a.current_value or 0) }}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td>Total</td>
-              <td style="font-family:var(--font-heading); font-weight:800; color:var(--vp-blue-dark);">
-                ₹{{ "{:,.0f}".format(portfolio_latest.total_value or 0) if portfolio_latest else '—' }}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-      {% else %}
-      <div class="vp-card-body text-center py-3" style="color:var(--vp-text-muted);">
-        <p class="small mb-0">No portfolio snapshot uploaded yet.</p>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- Asset allocation -->
-  <div class="col-md-5">
-    <div class="vp-card h-100">
-      <div class="vp-card-header">
-        <h5 class="vp-card-title"><i class="bi bi-pie-chart-fill"></i> Asset Allocation</h5>
+        <h5 class="vp-card-title"><i class="bi bi-pie-chart-fill"></i> Current Allocation</h5>
         {% if allocation_total.snapshot_date %}
-        <span class="vp-badge vp-badge-yellow">{{ allocation_total.snapshot_date }}</span>
+        <span class="vp-badge vp-badge-yellow">as of {{ allocation_total.snapshot_date }}</span>
         {% endif %}
       </div>
       <div class="vp-card-body">
@@ -410,12 +311,20 @@
             </div>
             <div class="alloc-bar-wrap">
               <div class="alloc-bar"
-                   style="width:{{ [row.current_pct, 100]|min }}%;
-                          background:var(--vp-blue); opacity:{{ 0.5 + loop.index0 * 0.1 }};"></div>
+                   style="width:{{ [row.current_pct | default(0) | float, 100]|min }}%; background:var(--vp-blue); opacity:{{ 0.5 + loop.index0 * 0.1 }};"></div>
             </div>
             <div style="display:flex; justify-content:space-between; font-size:.72rem; color:var(--vp-text-muted); margin-top:.15rem;">
               <span>₹{{ "{:,.0f}".format(row.current_value or 0) }}</span>
-              <span>Target {{ row.target_pct }}%</span>
+              
+              {% if row.is_off_track %}
+                <span style="color:var(--vp-danger); font-weight: 700;">
+                  <i class="bi bi-exclamation-triangle-fill"></i> Off Track (Target {{ row.target_pct }}%)
+                </span>
+              {% else %}
+                <span style="color:var(--vp-success); font-weight: 600;">
+                  <i class="bi bi-check-circle-fill"></i> On Track (Target {{ row.target_pct }}%)
+                </span>
+              {% endif %}
             </div>
           </div>
           {% endfor %}
@@ -427,10 +336,10 @@
       </div>
     </div>
   </div>
+
 </div>
 
 
-<!-- ══ SECTION 5: CURRENT FINANCIAL ASSETS ══ -->
 <div class="section-title" id="current-assets">
   <i class="bi bi-wallet-fill"></i> Current Financial Assets
 </div>
@@ -447,7 +356,6 @@
       <tbody>
         {% for a in current_assets_with_id %}
         <tr id="cfa-row-{{ a.id }}">
-          <!-- Display row -->
           <td class="cfa-display-{{ a.id }}">
             <span style="font-weight:500;">{{ a.asset_name }}</span>
           </td>
@@ -467,6 +375,7 @@
             </button>
             <form method="POST" action="{{ url_for('admin.delete_current_asset_route', row_id=a.id) }}"
                   style="display:inline;" onsubmit="return confirm('Remove this asset?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
               <input type="hidden" name="customer_id" value="{{ customer_id }}">
               <button type="submit" class="btn-vp-ghost" style="font-size:0.75rem; padding:0.2rem 0.55rem; color:var(--vp-danger);">
                 <i class="bi bi-trash"></i>
@@ -477,11 +386,11 @@
         </tr>
 
         {% if is_admin_view %}
-        <!-- Edit row (hidden by default) -->
         <tr id="cfa-edit-{{ a.id }}" style="display:none; background:var(--vp-blue-light);">
           <td colspan="4">
             <form method="POST" action="{{ url_for('admin.edit_current_asset_route', row_id=a.id) }}"
                   class="d-flex gap-2 align-items-center flex-wrap">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
               <input type="hidden" name="customer_id" value="{{ customer_id }}">
               <input type="text" name="asset_name" value="{{ a.asset_name }}"
                      class="vp-input" style="max-width:200px;" required>
@@ -520,10 +429,10 @@
   </div>
 
   {% if is_admin_view %}
-  <!-- Add new asset form -->
   <div class="vp-card-body" style="border-top:1px solid var(--vp-border);">
     <form method="POST" action="{{ url_for('admin.add_current_asset_route', customer_id=customer_id) }}"
           class="d-flex gap-2 align-items-center flex-wrap">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
       <input type="text" name="asset_name" placeholder="Asset name"
              class="vp-input" style="max-width:200px;" required>
       <select name="asset_class" class="vp-input" style="max-width:130px;">
@@ -547,7 +456,7 @@
   {% endif %}
 </div>
 
-<!-- ══ SECTION 6: HELD AWAY ASSETS ══ -->
+
 <div class="section-title" id="other-assets">
   <i class="bi bi-safe2-fill"></i> Held Away Assets
 </div>
@@ -565,7 +474,6 @@
       <tbody>
         {% for a in other_assets_with_id %}
         <tr id="oa-row-{{ a.id }}">
-          <!-- Display row -->
           <td class="oa-display-{{ a.id }}" style="font-weight:500;">{{ a.asset_name }}</td>
           <td class="oa-display-{{ a.id }}" style="font-size:0.83rem; color:var(--vp-text-muted);">
             {{ a.asset_type or '—' }}
@@ -584,6 +492,7 @@
             </button>
             <form method="POST" action="{{ url_for('admin.delete_other_asset_route', row_id=a.id) }}"
                   style="display:inline;" onsubmit="return confirm('Remove this asset?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
               <input type="hidden" name="customer_id" value="{{ customer_id }}">
               <button type="submit" class="btn-vp-ghost" style="font-size:0.75rem; padding:0.2rem 0.55rem; color:var(--vp-danger);">
                 <i class="bi bi-trash"></i>
@@ -594,11 +503,11 @@
         </tr>
 
         {% if is_admin_view %}
-        <!-- Edit row -->
         <tr id="oa-edit-{{ a.id }}" style="display:none; background:var(--vp-blue-light);">
           <td colspan="5">
             <form method="POST" action="{{ url_for('admin.edit_other_asset_route', row_id=a.id) }}"
                   class="d-flex gap-2 align-items-center flex-wrap">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
               <input type="hidden" name="customer_id" value="{{ customer_id }}">
               <input type="text" name="asset_name" value="{{ a.asset_name }}"
                      class="vp-input" style="max-width:170px;" placeholder="Asset name" required>
@@ -632,10 +541,10 @@
   </div>
 
   {% if is_admin_view %}
-  <!-- Add new asset form -->
   <div class="vp-card-body" style="border-top:1px solid var(--vp-border);">
     <form method="POST" action="{{ url_for('admin.add_other_asset_route', customer_id=customer_id) }}"
           class="d-flex gap-2 align-items-center flex-wrap">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
       <input type="text" name="asset_name" placeholder="Asset name"
              class="vp-input" style="max-width:170px;" required>
       <input type="text" name="asset_type" placeholder="Type (e.g. FD, Insurance)"
@@ -664,7 +573,6 @@
 </div>
 
 
-<!-- ══ SECTION 7: CURRENT PLAN + ARCHIVED PLANS ══ -->
 <div class="row g-3 mb-3">
   <div class="col-md-6">
     <div class="section-title" style="margin-top:1.25rem;">
@@ -739,7 +647,6 @@
 
 {% endblock %}
 
-
 {% block extra_js %}
 <script>
 // Animate probability bars
@@ -769,7 +676,4 @@ function oaCancel(id) {
     document.getElementById('oa-edit-' + id).style.display = 'none';
 }
 </script>
-
 {% endblock %}
-
-

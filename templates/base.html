@@ -724,27 +724,24 @@
 
       <!-- Nav Links -->
       <div class="vp-nav-links">
-        {% if session.get('role') == 'customer' %}
-          <a class="vp-nav-link {% if request.endpoint == 'customer.dashboard' %}active{% endif %}"
-             href="{{ url_for('customer.dashboard') }}">
-            <i class="bi bi-grid-1x2-fill"></i> Dashboard
-          </a>
-          <a class="vp-nav-link {% if request.endpoint == 'customer.financial_plan' %}active{% endif %}"
-             href="{% if plan %}{{ url_for('customer.view_plan', plan_id=plan.id) }}{% else %}#{% endif %}">
-            <i class="bi bi-file-earmark-text-fill"></i> My Plan
-          </a>
-          <a class="vp-nav-link {% if request.endpoint == 'customer.investments' %}active{% endif %}"
-             href="#">
-            <i class="bi bi-graph-up-arrow"></i> Investments
-          </a>
-          <a class="vp-nav-link {% if request.endpoint == 'customer.portfolio' %}active{% endif %}"
-             href="#">
-            <i class="bi bi-pie-chart-fill"></i> Portfolio
-          </a>
-          <a class="vp-nav-link {% if request.endpoint == 'customer.other_assets' %}active{% endif %}"
-             href="#">
-            <i class="bi bi-safe2-fill"></i> Other Assets
-          </a>
+    {% if session.get('role') == 'customer' %}
+      
+      <a class="vp-nav-link {% if request.endpoint == 'customer.dashboard' %}active{% endif %}"
+         href="{{ url_for('customer.dashboard') }}">
+        <i class="bi bi-grid-1x2-fill"></i> Dashboard
+      </a>
+      
+      <a class="vp-nav-link {% if request.endpoint == 'customer.my_plan' %}active{% endif %}"
+         href="{{ url_for('customer.my_plan') }}">
+        <i class="bi bi-file-earmark-text-fill"></i> My Plan
+      </a>
+      
+      <a class="vp-nav-link {% if request.endpoint == 'customer.tracking' %}active{% endif %}"
+         href="{{ url_for('customer.tracking') }}">
+        <i class="bi bi-crosshair"></i> Tracking
+      </a>
+
+    
 
         {% elif session.get('role') == 'admin' %}
           <a class="vp-nav-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}"

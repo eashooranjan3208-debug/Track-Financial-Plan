@@ -1,85 +1,76 @@
-"""
-parse_transactions.py
-─────────────────────
-Parser for: YYYYMMDD_HHMMSS_transactions.xlsx  (system-wide)
-
-Confirmed columns from real file:
-  Unnamed: 0       → source_row_id  (non-sequential source system IDs)
-  PAN              → pan
-  TRANSACTION DATE → transaction_date
-  TOTAL AMOUNT     → total_amount   (signed int: negative = redemption)
-  APPLICANT        → applicant_name
-  PAN_SOURCE       → pan_source     (PAN_suffix, e.g. ABMPM2997D_adv)
-"""
 import pandas as pd
 from datetime import date
 from pathlib import Path
-
+import numpy as np
 
 def parse_transactions(file_path, upload_date=None):
+    """
+    Parse transaction history Excel file using vectorized operations.
+    """
     if upload_date is None:
         upload_date = date.today()
 
-    df = pd.read_excel(file_path)
-    _require_cols(df, {"PAN","TRANSACTION DATE","TOTAL AMOUNT","PAN_SOURCE"}, file_path)
+    try:
+        df = pd.read_excel(file_path, engine='openpyxl')
+    except Exception as e:
+        raise ValueError(f"Failed to read Excel file {Path(file_path).name}: {str(e)}")
 
-    rows, skipped = [], 0
-    for _, row in df.iterrows():
-        pan = _str(row.get("PAN"))
-        if not pan:
-            skipped += 1; continue
-
-        tx_date = _to_date(row.get("TRANSACTION DATE"))
-        if tx_date is None:
-            skipped += 1; continue
-
-        pan_source   = _str(row.get("PAN_SOURCE")) or ""
-        account_type = pan_source.split("_")[-1] if "_" in pan_source else None
-
-        rows.append({
-            "source_row_id":    _int(row.get("Unnamed: 0")),
-            "pan":              pan,
-            "pan_source":       pan_source,
-            "account_type":     account_type,
-            "transaction_date": tx_date,
-            "total_amount":     _decimal(row.get("TOTAL AMOUNT", 0)),
-            "applicant_name":   _str(row.get("APPLICANT")),
-            "upload_date":      upload_date,
-            "entry_type":       "excel_upload",
-        })
-
-    print(f"[parse_transactions] {Path(file_path).name}: {len(rows)} rows, {skipped} skipped")
-    return rows
-
-
-def _require_cols(df, required, path):
+    # 1. Validate Columns
+    required = {"PAN", "TRANSACTION DATE", "TOTAL AMOUNT", "PAN_SOURCE"}
     missing = required - set(df.columns)
     if missing:
-        raise ValueError(f"{Path(path).name}: missing columns {missing}")
+        raise ValueError(f"{Path(file_path).name}: missing columns {missing}")
 
-def _str(v):
-    if v is None: return None
-    s = str(v).strip()
-    return s if s and s.lower() not in ("nan","none","") else None
+    initial_row_count = len(df)
 
-def _to_date(v):
-    if v is None: return None
-    if hasattr(v, "date"): return v.date()
-    try: return pd.to_datetime(str(v)).date()
-    except: return None
+    # 2. Clean PAN and Filter
+    df["PAN"] = df["PAN"].astype(str).str.strip()
+    # Keep rows where PAN is not empty and not 'nan'
+    df = df[(df["PAN"] != "") & (df["PAN"].str.lower() != "nan")].copy()
 
-def _int(v):
-    if v is None: return None
-    try: return int(float(str(v)))
-    except: return None
+    # 3. Clean Dates and Filter
+    # Coerce invalid dates to NaT (Not a Time)
+    df["TRANSACTION DATE"] = pd.to_datetime(df["TRANSACTION DATE"], errors="coerce")
+    df = df.dropna(subset=["TRANSACTION DATE"])
+    # Convert Pandas Timestamp to standard Python date objects for MySQL
+    df["TRANSACTION DATE"] = df["TRANSACTION DATE"].dt.date
 
-def _decimal(v):
-    if v is None: return 0.0
-    # 1. Convert to string, remove commas, strip spaces, make lowercase
-    s = str(v).replace(",", "").strip().lower()
-    # 2. Catch Pandas empty cells and blanks
-    if s in ('nan', 'none', ''): 
-        return 0.0
-    # 3. Convert to float
-    try: return float(s)
-    except: return 0.0
+    # 4. Clean Numeric Amounts
+    cleaned_amount = df["TOTAL AMOUNT"].astype(str).str.replace(',', '', regex=False)
+    df["TOTAL AMOUNT"] = pd.to_numeric(cleaned_amount, errors="coerce").fillna(0.0)
+
+    # 5. Extract Optional Columns Safely
+    source_row_id = pd.to_numeric(df["Unnamed: 0"], errors="coerce").fillna(0).astype(int) if "Unnamed: 0" in df.columns else None
+    
+    applicant_name = df["APPLICANT"].astype(str).str.strip() if "APPLICANT" in df.columns else None
+    if applicant_name is not None:
+        applicant_name = applicant_name.replace({"nan": None, "": None})
+
+    # 6. Extract Account Type from PAN_SOURCE
+    df["PAN_SOURCE"] = df["PAN_SOURCE"].astype(str).str.strip().replace({"nan": "", "None": ""})
+    
+    # Vectorized extraction: Find rows with '_', split them from the right, take the last piece
+    has_underscore = df["PAN_SOURCE"].str.contains('_', na=False)
+    df["account_type"] = None
+    df.loc[has_underscore, "account_type"] = df.loc[has_underscore, "PAN_SOURCE"].str.rsplit('_', n=1).str[-1]
+
+    # 7. Construct Final DataFrame
+    final_df = pd.DataFrame({
+        "source_row_id": source_row_id,
+        "pan": df["PAN"],
+        "pan_source": df["PAN_SOURCE"],
+        "account_type": df["account_type"],
+        "transaction_date": df["TRANSACTION DATE"],
+        "total_amount": df["TOTAL AMOUNT"],
+        "applicant_name": applicant_name,
+        "upload_date": upload_date,
+        "entry_type": "excel_upload"
+    })
+
+    # Convert to list of dicts, ensuring SQL compatibility (NaN -> None)
+    rows = final_df.replace({np.nan: None, pd.NA: None}).to_dict(orient="records")
+
+    skipped = initial_row_count - len(rows)
+    print(f"[parse_transactions] {Path(file_path).name}: {len(rows)} rows processed, {skipped} skipped")
+    
+    return rows

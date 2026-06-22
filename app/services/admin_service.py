@@ -3,7 +3,31 @@ from datetime import datetime
 import os 
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "parsers"))
+from app.database import query, bulk_query 
+import re
+from parse_plan_json import parse_plan_json
+from parse_transactions import parse_transactions
+from parse_portfolio import parse_portfolio
+from parse_asset_allocation import parse_asset_allocation
 
+def decode_pan(raw_pan):
+    """
+    Safely cleans byte-encoded PANs from Excel cells.
+    Leaves normal strings untouched for production.
+    """
+    if not raw_pan:
+        return None
+        
+    if isinstance(raw_pan, bytes):
+        return raw_pan.decode("utf-8").strip()
+        
+    raw_str = str(raw_pan).strip()
+    if raw_str.startswith("b'") and raw_str.endswith("'"):
+        return raw_str[2:-1]
+    if raw_str.startswith('b"') and raw_str.endswith('"'):
+        return raw_str[2:-1]
+        
+    return raw_str
 
 def get_dashboard_stats():
     customers = query(
@@ -14,7 +38,6 @@ def get_dashboard_stats():
         "SELECT COUNT(*) AS total FROM financial_plans WHERE is_current = 1",
         fetchone=True
     )
-    # plan_goals now exists after migration 3
     goals_at_risk = query(
         "SELECT COUNT(*) AS total FROM plan_goals WHERE probability < 95",
         fetchone=True
@@ -26,11 +49,24 @@ def get_dashboard_stats():
         """,
         fetchone=True
     )
+    
+    
+    last_upload = query(
+        "SELECT MAX(uploaded_at) AS last_date FROM financial_plans",
+        fetchone=True
+    )
+    
+    last_date_str = None
+    if last_upload and last_upload.get("last_date"):
+        
+        last_date_str = last_upload["last_date"].strftime("%d %b %Y")
+
     return {
-        "active_customers": customers["total"]    if customers    else 0,
-        "active_plans":     plans["total"]        if plans        else 0,
+        "active_customers": customers["total"] if customers else 0,
+        "active_plans":     plans["total"] if plans else 0,
         "goals_at_risk":    goals_at_risk["total"] if goals_at_risk else 0,
         "recent_uploads":   recent_uploads["total"] if recent_uploads else 0,
+        "last_upload_date": last_date_str  
     }
 
 
@@ -241,39 +277,36 @@ def insert_other_assets(customer_id, plan_id, assets):
 
 
 def insert_transactions(rows, customer_lookup):
-    """
-    Actual customer_transactions columns:
-    customer_id, pan_source, transaction_date,
-    total_amount, applicant_name
-    No source_row_id, no pan, no account_type, no entry_type.
-    """
-    inserted = skipped = 0
+    param_list = []
+    skipped = 0
+    
     for row in rows:
-        customer_id = customer_lookup.get(row.get("pan"))
+        raw_pan = row.get("pan")
+        clean_pan = decode_pan(raw_pan)
+        
+        customer_id = customer_lookup.get(clean_pan)
         if not customer_id:
             skipped += 1
             continue
-        try:
-            query(
-                """
-                INSERT INTO customer_transactions (
-                    customer_id, pan_source,
-                    transaction_date, total_amount, applicant_name
-                ) VALUES (%s,%s,%s,%s,%s)
-                """,
-                params=(
-                    customer_id,
-                    row.get("pan_source"),
-                    row["transaction_date"],
-                    row["total_amount"],
-                    row.get("applicant_name"),
-                ),
-                commit=True
-            )
-            inserted += 1
-        except Exception:
-            skipped += 1
-    return inserted, skipped
+            
+        param_list.append((
+            customer_id,
+            row.get("pan_source"),
+            row["transaction_date"],
+            row["total_amount"],
+            row.get("applicant_name"),
+        ))
+
+    if not param_list:
+        return 0, skipped
+
+    sql = """
+        INSERT INTO customer_transactions (
+            customer_id, pan_source, transaction_date, total_amount, applicant_name
+        ) VALUES (%s, %s, %s, %s, %s)
+    """
+    inserted_count = bulk_query(sql, param_list)
+    return inserted_count, skipped
 
 
 def insert_portfolio_snapshots(rows, customer_lookup):
@@ -284,7 +317,8 @@ def insert_portfolio_snapshots(rows, customer_lookup):
     """
     inserted = skipped = 0
     for row in rows:
-        customer_id = customer_lookup.get(row.get("pan"))
+        clean_pan = decode_pan(row.get("pan"))
+        customer_id = customer_lookup.get(clean_pan) if clean_pan else None
         if not customer_id:
             skipped += 1
             continue
@@ -318,8 +352,8 @@ def insert_asset_allocation_snapshots(rows, customer_lookup):
     """
     inserted = skipped = 0
     for row in rows:
-        pan         = row.get("pan")
-        customer_id = customer_lookup.get(pan) if pan else None
+        clean_pan = decode_pan(row.get("pan"))
+        customer_id = customer_lookup.get(clean_pan) if clean_pan else None
         if not customer_id:
             skipped += 1
             continue
@@ -398,22 +432,23 @@ def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
         "unrecognized": [],
     }
 
-    # Track HTML files by PAN so we can link them to plans
-    # processed in the same batch (HTML may come before or after JSON)
+    
     html_paths_by_pan = {}
 
     all_files = find_all_files(extract_dir)
 
-    # ── Pass 1: classify everything, save permanent copies ─────
     classified = []
     for full_path, filename in all_files:
-        file_type, pan = classify_file(filename)
+        
+        file_type, clean_pan = classify_file(filename)
+        
         if file_type is None:
             results["unrecognized"].append(filename)
             continue
-        classified.append((full_path, filename, file_type, pan))
+            
+        classified.append((full_path, filename, file_type, clean_pan))
+        
 
-    # ── Pass 2: handle report.html first (so JSON can link them) ─
     for full_path, filename, file_type, pan in classified:
         if file_type != "report_html":
             continue
@@ -441,7 +476,7 @@ def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
                 "status": "failed", "detail": str(e)
             })
 
-    # ── Pass 3: handle plan.json ────────────────────────────────
+    
     for full_path, filename, file_type, pan in classified:
         if file_type != "plan_json":
             continue
@@ -488,7 +523,7 @@ def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
                 "status": "failed", "detail": str(e)
             })
 
-    # ── Pass 4: system-wide files (transactions, portfolio, asset_allocation) ─
+    
     for full_path, filename, file_type, pan in classified:
         if file_type == "transactions":
             try:
@@ -565,7 +600,7 @@ def get_or_create_plan_id(customer_id):
     if plan:
         return plan["id"]
 
-    # No plan exists — create minimal manual-entry plan
+    
     from datetime import date
     today = date.today()
     query(
@@ -585,7 +620,6 @@ def get_or_create_plan_id(customer_id):
     return result["id"] if result else None
 
 
-# ── Current Financial Assets CRUD ──────────────────────────────
 
 def add_current_asset(customer_id, asset_name, asset_class, current_value):
     plan_id = get_or_create_plan_id(customer_id)
@@ -624,7 +658,7 @@ def get_current_asset_row(row_id):
         params=(row_id,), fetchone=True
     )
 
-# ── Other Financial Investments (Held Away Assets) CRUD ────────
+
 
 def add_other_asset(customer_id, asset_name, asset_type, current_value,
                      maturity_value, annual_contribution, maturity_date, notes):
@@ -670,3 +704,96 @@ def get_other_asset_row(row_id):
         "SELECT * FROM other_assets WHERE id = %s",
         params=(row_id,), fetchone=True
     )
+
+
+def insert_transactions(rows, customer_lookup):
+    """Bulk inserts customer transactions."""
+    param_list = []
+    skipped = 0
+    
+    
+    for row in rows:
+        clean_pan = decode_pan(row.get("pan"))
+        
+        customer_id = customer_lookup.get(clean_pan)
+        if not customer_id:
+            skipped += 1
+            continue
+            
+        param_list.append((
+            customer_id,
+            row.get("pan_source"),
+            row["transaction_date"],
+            row["total_amount"],
+            row.get("applicant_name"),
+        ))
+
+
+    if not param_list:
+        return 0, skipped
+
+    # 2. Define the SQL once
+    sql = """
+        INSERT INTO customer_transactions (
+            customer_id, pan_source,
+            transaction_date, total_amount, applicant_name
+        ) VALUES (%s, %s, %s, %s, %s)
+    """
+    
+    
+    inserted_count = bulk_query(sql, param_list)
+    
+    return inserted_count, skipped
+
+
+
+
+
+def decode_pan(raw_pan):
+    """Safely cleans byte-encoded PANs from Excel cells."""
+    if not raw_pan:
+        return None
+    if isinstance(raw_pan, bytes):
+        return raw_pan.decode("utf-8").strip()
+    raw_str = str(raw_pan).strip()
+    if raw_str.startswith("b'") and raw_str.endswith("'"):
+        return raw_str[2:-1]
+    if raw_str.startswith('b"') and raw_str.endswith('"'):
+        return raw_str[2:-1]
+    return raw_str
+
+
+
+
+
+def classify_file(filename):
+    """
+    Classifies files. 
+    Note: Replace the placeholder with your actual 64-char hash.
+    """
+    if filename.startswith('._') or filename == '.DS_Store':
+        return None, None
+
+    filename_lower = filename.lower()
+    
+    
+    if filename_lower.endswith('.json'):
+        file_type = 'plan_json'
+    elif filename_lower.endswith('.html'):
+        file_type = 'report_html'
+    elif 'transaction' in filename_lower:
+        file_type = 'transactions'
+    elif 'portfolio' in filename_lower:
+        file_type = 'portfolio'
+    elif 'asset' in filename_lower:
+        file_type = 'asset_allocation'
+    else:
+        return None, None
+
+    
+    test_user_hash = "a6e7f4af1aa8da3965bc9726e75b77d12e25c073fc73c03afd0448aa5adb4600"
+    
+    return file_type, test_user_hash
+    
+    
+

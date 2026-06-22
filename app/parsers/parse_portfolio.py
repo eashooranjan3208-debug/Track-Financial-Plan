@@ -1,72 +1,59 @@
-"""
-parse_portfolio.py
-──────────────────
-Parser for: YYYYMMDD_HHMMSS_portfolio.xlsx  (system-wide, todays_val)
-
-Confirmed columns from real file:
-  Unnamed: 0    → (ignored, not needed for dedup)
-  PAN_SOURCE    → pan_source  (e.g. ABMPM2997D_adv)
-  CURRENT VALUE → current_value (float)
-
-PAN extracted by splitting PAN_SOURCE on '_', taking all but last segment.
-account_type = last segment ('adv' or 'mfd').
-
-Real sample: 10 rows, all _adv. Production may include _mfd.
-snapshot_date comes from filename YYYYMMDD prefix.
-"""
 import pandas as pd
 from datetime import date
 from pathlib import Path
-
+import numpy as np
 
 def parse_portfolio(file_path, snapshot_date=None):
     if snapshot_date is None:
         snapshot_date = date.today()
 
-    df = pd.read_excel(file_path)
+    # In production, we explicitly define the engine and handle potential file corruption
+    try:
+        df = pd.read_excel(file_path, engine='openpyxl')
+    except Exception as e:
+        raise ValueError(f"Failed to read Excel file {Path(file_path).name}: {str(e)}")
 
-    if "PAN_SOURCE" not in df.columns:
-        raise ValueError(f"{Path(file_path).name}: missing 'PAN_SOURCE' column")
-    if "CURRENT VALUE" not in df.columns:
-        raise ValueError(f"{Path(file_path).name}: missing 'CURRENT VALUE' column")
+    # 1. Validate Columns
+    required_columns = ["PAN_SOURCE", "CURRENT VALUE"]
+    missing_cols = [col for col in required_columns if col not in df.columns]
+    if missing_cols:
+        raise ValueError(f"{Path(file_path).name}: missing columns {missing_cols}")
 
-    rows, skipped = [], 0
-    for _, row in df.iterrows():
-        pan_source = _str(row.get("PAN_SOURCE"))
-        if not pan_source or "_" not in pan_source:
-            skipped += 1; continue
+    initial_row_count = len(df)
 
-        parts        = pan_source.split("_")
-        account_type = parts[-1]
-        pan          = "_".join(parts[:-1])
+    # 2. Clean and Filter PAN_SOURCE (Vectorized)
+    # Drop rows where PAN_SOURCE is strictly empty/NaN
+    df = df.dropna(subset=["PAN_SOURCE"])
+    df["PAN_SOURCE"] = df["PAN_SOURCE"].astype(str).str.strip()
+    
+    # Keep only rows that actually contain an underscore
+    df = df[df["PAN_SOURCE"].str.contains('_', na=False)].copy()
 
-        if not pan:
-            skipped += 1; continue
+    # 3. Extract PAN and Account Type (Vectorized)
+    # rsplit with n=1 splits from the right exactly once.
+    # 'ABCDE1234F_XYZ_adv' becomes ['ABCDE1234F_XYZ', 'adv']
+    split_data = df["PAN_SOURCE"].str.rsplit("_", n=1, expand=True)
+    df["pan"] = split_data[0]
+    df["account_type"] = split_data[1]
 
-        rows.append({
-            "pan":           pan,
-            "pan_source":    pan_source,
-            "account_type":  account_type,
-            "snapshot_date": snapshot_date,
-            "current_value": _decimal(row.get("CURRENT VALUE", 0)),
-        })
+    # Filter out rows where the PAN part ended up empty
+    df = df[df["pan"] != ""]
 
-    print(f"[parse_portfolio] {Path(file_path).name}: {len(rows)} rows, {skipped} skipped")
+    # 4. Clean CURRENT VALUE (Vectorized)
+    # Convert to string, remove commas, then aggressively coerce to numeric (invalid becomes NaN)
+    cleaned_values = df["CURRENT VALUE"].astype(str).str.replace(',', '', regex=False)
+    df["current_value"] = pd.to_numeric(cleaned_values, errors='coerce').fillna(0.0)
+
+    # 5. Add static columns
+    df["snapshot_date"] = snapshot_date
+
+    # 6. Select and rename final columns for the output dictionary
+    final_df = df[["pan", "PAN_SOURCE", "account_type", "snapshot_date", "current_value"]]
+    
+    # Convert to list of dicts natively
+    rows = final_df.rename(columns={"PAN_SOURCE": "pan_source"}).to_dict(orient="records")
+    
+    skipped = initial_row_count - len(rows)
+    print(f"[parse_portfolio] {Path(file_path).name}: {len(rows)} rows processed, {skipped} skipped")
+    
     return rows
-
-
-def _str(v):
-    if v is None: return None
-    s = str(v).strip()
-    return s if s and s.lower() not in ("nan","none","") else None
-
-def _decimal(v):
-    if v is None: return 0.0
-    # 1. Convert to string, remove commas, strip spaces, make lowercase
-    s = str(v).replace(",", "").strip().lower()
-    # 2. Catch Pandas empty cells and blanks
-    if s in ('nan', 'none', ''): 
-        return 0.0
-    # 3. Convert to float
-    try: return float(s)
-    except: return 0.0

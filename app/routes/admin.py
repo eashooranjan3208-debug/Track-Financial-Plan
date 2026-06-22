@@ -1,9 +1,12 @@
 import os
 import sys
+from werkzeug.utils import secure_filename
+from flask import current_app # Needed to check our environment config
 from datetime import datetime
 from functools import wraps
 from flask import (Blueprint, render_template, request,
                    redirect, url_for, flash, session)
+import tempfile
 
 # Utils & Services
 from app.utils import (
@@ -65,8 +68,10 @@ def admin_required(f):
     return decorated
 
 def _allowed(filename, types):
-    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
-    return ext in types
+    """Checks extension and returns a sanitized, safe filename."""
+    safe_name = secure_filename(filename) 
+    ext = safe_name.rsplit(".", 1)[-1].lower() if "." in safe_name else ""
+    return ext in types, safe_name
 
 # ── Admin dashboard ────────────────────────────────────────────
 @admin_bp.route("/dashboard")
@@ -131,123 +136,60 @@ def edit_other_asset():
         flash("Held Away Asset updated successfully. It is now locked from ZIP overwrites.", "success")
     return redirect(url_for("customer.dashboard"))
 
-# ── SINGLE FILE UPLOAD ─────────────────────────────────────────
+# ── UNIFIED FOLDER UPLOAD ──────────────────────────────────────
 @admin_bp.route("/upload", methods=["GET", "POST"])
 @admin_required
 def upload():
-    customers = get_all_customers()
-
     if request.method == "GET":
-        return render_template("admin/upload.html", customers=customers)
+        # We no longer need to pass the 'customers' list to the template!
+        return render_template("admin/upload.html")
 
-    customer_id = request.form.get("customer_id")
-    if not customer_id:
-        flash("Please select a customer.", "warning")
-        return render_template("admin/upload.html", customers=customers)
-
-    customer_id = int(customer_id)
-    customer = query("SELECT id, pan, name FROM customers WHERE id = %s", params=(customer_id,), fetchone=True)
+    # Accept multiple files from a folder selection
+    uploaded_files = request.files.getlist("folder_files")
     
-    if not customer:
-        flash("Customer not found.", "danger")
-        return render_template("admin/upload.html", customers=customers)
+    if not uploaded_files or not uploaded_files[0].filename:
+        flash("Please select a folder containing the data files.", "warning")
+        return render_template("admin/upload.html")
 
-    pan = customer["pan"]
-    results = {}
-    plan_id = None
-
-    # 1. HTML file
-    html_file = request.files.get("html_file")
-    html_file_path = None
-    if html_file and html_file.filename:
-        if not _allowed(html_file.filename, ALLOWED_EXTENSIONS["html"]):
-            flash("HTML file must be .html or .htm", "warning")
-        else:
-            _, path = make_upload_path(pan, "report", "html")
-            html_file.save(path)
-            html_file_path = path
-            results["html"] = "✅ Saved"
-
-    # 2. JSON file
-    json_file = request.files.get("json_file")
-    if json_file and json_file.filename:
-        if not _allowed(json_file.filename, ALLOWED_EXTENSIONS["json"]):
-            flash("Plan data file must be .json", "warning")
-        else:
-            try:
-                _, path = make_upload_path(pan, "plan", "json")
-                json_file.save(path)
-                json_file_path = path
-                parsed = parse_plan_json(path)
-
-                archive_existing_plans(customer_id)
-                plan_id = create_plan_record(
-                    customer_id=customer_id, plan_data=parsed["plan"],
-                    html_file_path=html_file_path, json_file_path=json_file_path,
-                    ingestion_source="upload"
-                )
-
-                insert_family_members(plan_id, parsed["family"])
-                insert_goals(plan_id, parsed["goals"])
-                insert_cashflow(plan_id, parsed["cashflow"])
-                insert_current_assets(plan_id, parsed["current_assets"])
-                insert_retirement_expenses(plan_id, parsed["retirement_expenses"])
-                insert_other_assets(customer_id, plan_id, parsed["other_assets"])
-
-                results["json"] = "✅ Plan imported successfully!"
-            except Exception as e:
-                results["json"] = f"❌ Error: {str(e)}"
-                flash(f"JSON parse error: {str(e)}", "danger")
-
-    elif html_file_path:
-        existing = query("SELECT id FROM financial_plans WHERE customer_id=%s AND is_current=1", params=(customer_id,), fetchone=True)
-        if existing:
-            query("UPDATE financial_plans SET file_path=%s WHERE id=%s", params=(html_file_path, existing["id"]), commit=True)
-            results["html"] = "✅ HTML report linked to existing plan"
-
-    if not results:
-        flash("No files were uploaded.", "warning")
-        return render_template("admin/upload.html", customers=customers)
-
-    return render_template("admin/upload_result.html", customer=customer, results=results, plan_id=plan_id)
-
-
-# ── MILESTONE 3: BULK ZIP UPLOAD ───────────────────────────────
-@admin_bp.route("/bulk-upload", methods=["GET", "POST"])
-@admin_required
-def bulk_upload():
-    if request.method == "GET":
-        return render_template("admin/bulk_upload.html")
-
-    zip_file = request.files.get("bulk_zip")
-    if not zip_file or not zip_file.filename:
-        flash("Please select a ZIP file to upload.", "warning")
-        return render_template("admin/bulk_upload.html")
-
-    if not zip_file.filename.lower().endswith(".zip"):
-        flash("File must be a .zip archive.", "warning")
-        return render_template("admin/bulk_upload.html")
-
-    extract_dir, temp_dir = extract_zip(zip_file)
+    temp_dir = tempfile.mkdtemp()
+    
     try:
-        results = process_bulk_upload(extract_dir)
+        for file in uploaded_files:
+            if file and file.filename:
+                base_name = os.path.basename(file.filename)
+                safe_filename = secure_filename(base_name)
+                
+                # Ignore empty names or hidden OS files
+                if safe_filename and safe_filename.lower() != 'ds_store':
+                    file_path = os.path.join(temp_dir, safe_filename)
+                    file.save(file_path)
+
+        # Pass the folder to the smart processor
+        results = process_bulk_upload(temp_dir)
+        
     finally:
         cleanup_temp_dir(temp_dir)
 
+    # We can reuse the bulk_upload_result.html template since it displays the dictionary perfectly
     return render_template("admin/bulk_upload_result.html", results=results)
-
 
 # ── Temporary Developer Backdoor ───────────────────────────────
 @admin_bp.route("/dev-login")
 def dev_login():
-    """Bypasses the login screen so you can test the admin portal MVP."""
+    """
+    Bypasses the login screen so you can test the admin portal MVP.
+    Strictly locked to development environments.
+    """
+    # Safeguard: Never allow this in production!
+    if current_app.config.get('ENV') == 'production':
+        flash("This route is disabled in production.", "danger")
+        return redirect(url_for('auth.login'))
+
     session.clear()
     session["user_id"] = 1
     session["role"] = "admin"
     flash("Logged in as Admin (Developer Mode) 🛠️", "success")
     return redirect(url_for("admin.dashboard"))
-
-
 
 
 @admin_bp.route("/customer/<int:customer_id>/current-assets/add", methods=["POST"])
@@ -413,3 +355,31 @@ def customer_dashboard(customer_id):
         customer_id=customer_id,
         **data
     )
+
+# Add this to your imports at the top of admin.py:
+# from app.services.plan_service import get_tracking_data
+
+@admin_bp.route("/customer/<int:customer_id>/tracking")
+@admin_required
+def customer_tracking(customer_id):
+    customer = get_customer_by_id(customer_id)
+    tracking_data = get_tracking_data(customer_id)
+    
+    if not tracking_data:
+        flash("No active plan data to track.", "warning")
+        return redirect(url_for("admin.customer_dashboard", customer_id=customer_id))
+        
+    return render_template(
+        "customer/tracking.html", 
+        customer=customer, 
+        is_admin_view=True,
+        **tracking_data
+    )
+
+@admin_bp.route("/customer/<int:customer_id>/my-plan")
+@admin_required
+def customer_my_plan(customer_id):
+    customer = get_customer_by_id(customer_id)
+    plan = query("SELECT file_path, html_file_path FROM financial_plans WHERE customer_id = %s AND is_current = 1", params=(customer_id,), fetchone=True)
+    
+    return render_template("customer/my_plan.html", customer=customer, plan=plan, is_admin_view=True)

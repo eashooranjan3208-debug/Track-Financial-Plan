@@ -3,6 +3,7 @@ from mysql.connector import pooling
 from flask import current_app
 import os
 
+
 # This will hold our connection pool (created once when app starts)
 _pool = None
 
@@ -69,3 +70,23 @@ def query(sql, params=None, fetchone=False, commit=False):
     finally:
         cursor.close()
         connection.close()               # returns connection back to pool
+
+
+def bulk_query(sql, param_list):
+    """
+    Executes a single SQL statement against a list of parameters.
+    Use this for bulk INSERTS to prevent N+1 performance degradation.
+    """
+    connection = get_db()
+    try:
+        cursor = connection.cursor()
+        # executemany optimizes the insertion natively at the C/driver level
+        cursor.executemany(sql, param_list)
+        connection.commit()
+        return cursor.rowcount  # Returns the total number of inserted rows
+    except mysql.connector.Error as e:
+        connection.rollback()
+        raise e
+    finally:
+        cursor.close()
+        connection.close()

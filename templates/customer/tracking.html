@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Tracking & Deviations — Vasupradah{% endblock %}
+
+{% block content %}
+<div class="vp-page-header">
+  <div>
+    <h2>Deviation Tracking</h2>
+    <p>Target vs. Actual comparisons across your portfolio</p>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-md-6">
+    <div class="vp-card h-100 {% if investments.is_off_track %}border-danger{% else %}border-success{% endif %}">
+      <div class="vp-card-header d-flex justify-content-between">
+        <h5 class="vp-card-title"><i class="bi bi-graph-up-arrow"></i> Annual Investments</h5>
+        {% if investments.is_off_track %}
+          <span class="vp-badge vp-badge-danger"><i class="bi bi-exclamation-triangle-fill"></i> Off Track (>10% dev)</span>
+        {% else %}
+          <span class="vp-badge vp-badge-success"><i class="bi bi-check-circle-fill"></i> On Track</span>
+        {% endif %}
+      </div>
+      <div class="vp-card-body">
+        <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
+          <span class="text-muted">Target (JSON Surplus)</span>
+          <strong>₹{{ "{:,.0f}".format(investments.target) }}</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-3">
+          <span class="text-muted">Projected Actual (Avg ₹{{ "{:,.0f}".format(investments.monthly_avg) }}/mo)</span>
+          <strong class="{% if investments.is_off_track %}text-danger{% else %}text-success{% endif %}">
+            ₹{{ "{:,.0f}".format(investments.actual) }}
+          </strong>
+        </div>
+        <div class="progress" style="height: 8px;">
+          <div class="progress-bar {% if investments.is_off_track %}bg-danger{% else %}bg-success{% endif %}" 
+               style="width: {{ [ (investments.actual / (investments.target or 1)) * 100, 100 ] | min }}%"></div>
+        </div>
+        <p class="small text-muted mt-2 text-end">{{ "{:.1f}".format(investments.deviation_pct) }}% Deviation</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="vp-card h-100 {% if portfolio.is_off_track %}border-danger{% else %}border-success{% endif %}">
+      <div class="vp-card-header d-flex justify-content-between">
+        <h5 class="vp-card-title"><i class="bi bi-briefcase-fill"></i> Total Portfolio Value</h5>
+        {% if portfolio.is_off_track %}
+          <span class="vp-badge vp-badge-danger"><i class="bi bi-exclamation-triangle-fill"></i> Off Track (>10% dev)</span>
+        {% else %}
+          <span class="vp-badge vp-badge-success"><i class="bi bi-check-circle-fill"></i> On Track</span>
+        {% endif %}
+      </div>
+      <div class="vp-card-body">
+        <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
+          <span class="text-muted">Target (Expected Value this year)</span>
+          <strong>₹{{ "{:,.0f}".format(portfolio.target) }}</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-3">
+          <span class="text-muted">Actual (Vasupradha + Held Away)</span>
+          <strong class="{% if portfolio.is_off_track %}text-danger{% else %}text-success{% endif %}">
+            ₹{{ "{:,.0f}".format(portfolio.actual_total) }}
+          </strong>
+        </div>
+        <div class="progress" style="height: 8px;">
+          <div class="progress-bar {% if portfolio.is_off_track %}bg-danger{% else %}bg-success{% endif %}" 
+               style="width: {{ [ (portfolio.actual_total / (portfolio.target or 1)) * 100, 100 ] | min }}%"></div>
+        </div>
+        <p class="small text-muted mt-2 text-end">{{ "{:.1f}".format(portfolio.deviation_pct) }}% Deviation</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="vp-card">
+      <div class="vp-card-header">
+        <h5 class="vp-card-title"><i class="bi bi-pie-chart-fill"></i> Asset Allocation Deviations</h5>
+      </div>
+      <div class="vp-card-body">
+        <table class="table table-borderless">
+          <thead>
+            <tr class="text-muted small" style="border-bottom: 1px solid var(--vp-border);">
+              <th>Asset Class</th>
+              <th>Target %</th>
+              <th>Actual %</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in allocations %}
+            <tr>
+              <td class="fw-bold">{{ row.asset_name }}</td>
+              <td>{{ row.target_pct }}%</td>
+              <td class="fw-bold">{{ row.current_pct }}%</td>
+              <td>
+                {% if row.is_off_track %}
+                  <span class="text-danger fw-bold"><i class="bi bi-x-circle-fill"></i> Off Track</span>
+                {% else %}
+                  <span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> On Track</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

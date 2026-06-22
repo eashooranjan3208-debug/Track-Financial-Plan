@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}My Plan — Vasupradah{% endblock %}
+
+{% block content %}
+<div class="vp-page-header">
+  <div>
+    <h2>My Financial Plan</h2>
+    <p>View your detailed financial report</p>
+  </div>
+</div>
+
+{% if not plan or not (plan.html_file_path or plan.file_path) %}
+<div style="background-color: #FFF3CD; color: #856404; border-left: 4px solid #FFC107; padding: 1rem 1.25rem; border-radius: 6px; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+  <i class="bi bi-exclamation-triangle-fill" style="color: #FFC107; font-size: 1.2rem;"></i>
+  <span style="font-weight: 500;">No HTML file is uploaded. Please upload the plan report to view it here.</span>
+</div>
+{% endif %}
+
+<div class="vp-card" style="height: 75vh; overflow: hidden;">
+  {% if plan and (plan.html_file_path or plan.file_path) %}
+    <iframe src="{{ url_for('customer.view_plan', plan_id=plan.id) }}" 
+            style="width: 100%; height: 100%; border: none;">
+    </iframe>
+  {% else %}
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background-color: var(--vp-bg); color: var(--vp-text-muted);">
+      <i class="bi bi-file-earmark-x" style="font-size: 4rem; opacity: 0.5;"></i>
+      <h4 style="margin-top: 1rem; color: var(--vp-blue-dark); font-weight: 700;">No File Uploaded</h4>
+      <p style="font-size: 0.95rem;">An HTML report has not been linked to this account yet.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

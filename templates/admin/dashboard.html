@@ -19,7 +19,7 @@
 
 <!-- Stat tiles -->
 <div class="row g-3 mb-4">
-  <div class="col-6 col-md-3">
+  <div class="col-12 col-md-4">
     <div class="vp-stat">
       <div class="stat-icon"><i class="bi bi-people-fill"></i></div>
       <div class="stat-label">Active Customers</div>
@@ -27,7 +27,7 @@
       <div class="stat-sub">registered accounts</div>
     </div>
   </div>
-  <div class="col-6 col-md-3">
+  <div class="col-12 col-md-4">
     <div class="vp-stat">
       <div class="stat-icon"><i class="bi bi-file-earmark-text-fill"></i></div>
       <div class="stat-label">Active Plans</div>
@@ -35,25 +35,12 @@
       <div class="stat-sub">current plans</div>
     </div>
   </div>
-  <div class="col-6 col-md-3">
-    <div class="vp-stat">
-      <div class="stat-icon" style="background:var(--vp-warning-bg);">
-        <i class="bi bi-exclamation-triangle-fill"
-           style="color:var(--vp-warning);"></i>
-      </div>
-      <div class="stat-label">Goals at Risk</div>
-      <div class="stat-value" style="color:var(--vp-warning);">
-        {{ stats.goals_at_risk }}
-      </div>
-      <div class="stat-sub">probability &lt; 95%</div>
-    </div>
-  </div>
-  <div class="col-6 col-md-3">
+  <div class="col-12 col-md-4">
     <div class="vp-stat">
       <div class="stat-icon"><i class="bi bi-cloud-upload-fill"></i></div>
-      <div class="stat-label">Recent Uploads</div>
-      <div class="stat-value">{{ stats.recent_uploads }}</div>
-      <div class="stat-sub">last 30 days</div>
+      <div class="stat-label">Last Upload Date</div>
+      <div class="stat-value" style="font-size: 1.5rem;">{{ stats.last_upload_date or 'No uploads' }}</div> 
+      <div class="stat-sub">system-wide</div>
     </div>
   </div>
 </div>
