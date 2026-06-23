@@ -1,5 +1,6 @@
 from app.database import query
 from datetime import datetime
+import hashlib
 import os 
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "parsers"))
@@ -9,6 +10,8 @@ from parse_plan_json import parse_plan_json
 from parse_transactions import parse_transactions
 from parse_portfolio import parse_portfolio
 from parse_asset_allocation import parse_asset_allocation
+
+SHA256_RE = re.compile(r"^[a-f0-9]{64}$", re.IGNORECASE)
 
 def decode_pan(raw_pan):
     """
@@ -28,6 +31,55 @@ def decode_pan(raw_pan):
         return raw_str[2:-1]
         
     return raw_str
+
+
+def _sha256_pan(pan):
+    if not pan:
+        return None
+    return hashlib.sha256(str(pan).strip().encode()).hexdigest()
+
+
+def _lookup_keys_for_pan(raw_pan):
+    """
+    Return all identifiers that may appear in uploaded files for one customer PAN.
+    Uploads can contain either the plain PAN or its SHA-256 digest.
+    """
+    clean_pan = decode_pan(raw_pan)
+    if not clean_pan:
+        return set()
+
+    keys = {clean_pan}
+    if SHA256_RE.match(clean_pan):
+        keys.add(clean_pan.lower())
+        return keys
+
+    upper_pan = clean_pan.upper()
+    lower_pan = clean_pan.lower()
+    keys.update({upper_pan, lower_pan})
+    keys.add(_sha256_pan(clean_pan))
+    keys.add(_sha256_pan(upper_pan))
+    keys.add(_sha256_pan(lower_pan))
+    return {key for key in keys if key}
+
+
+def _customer_lookup_from_rows(rows, value_factory):
+    lookup = {}
+    for row in rows or []:
+        for key in _lookup_keys_for_pan(row.get("pan")):
+            lookup[key] = value_factory(row)
+    return lookup
+
+
+def _lookup_customer_value(customer_lookup, raw_pan):
+    for key in _lookup_keys_for_pan(raw_pan):
+        value = customer_lookup.get(key)
+        if value:
+            return value
+    return None
+
+
+def _lookup_customer_id(customer_lookup, raw_pan):
+    return _lookup_customer_value(customer_lookup, raw_pan)
 
 def get_dashboard_stats():
     customers = query(
@@ -281,10 +333,7 @@ def insert_transactions(rows, customer_lookup):
     skipped = 0
     
     for row in rows:
-        raw_pan = row.get("pan")
-        clean_pan = decode_pan(raw_pan)
-        
-        customer_id = customer_lookup.get(clean_pan)
+        customer_id = _lookup_customer_id(customer_lookup, row.get("pan"))
         if not customer_id:
             skipped += 1
             continue
@@ -317,8 +366,7 @@ def insert_portfolio_snapshots(rows, customer_lookup):
     """
     inserted = skipped = 0
     for row in rows:
-        clean_pan = decode_pan(row.get("pan"))
-        customer_id = customer_lookup.get(clean_pan) if clean_pan else None
+        customer_id = _lookup_customer_id(customer_lookup, row.get("pan"))
         if not customer_id:
             skipped += 1
             continue
@@ -352,8 +400,7 @@ def insert_asset_allocation_snapshots(rows, customer_lookup):
     """
     inserted = skipped = 0
     for row in rows:
-        clean_pan = decode_pan(row.get("pan"))
-        customer_id = customer_lookup.get(clean_pan) if clean_pan else None
+        customer_id = _lookup_customer_id(customer_lookup, row.get("pan"))
         if not customer_id:
             skipped += 1
             continue
@@ -386,9 +433,9 @@ def insert_asset_allocation_snapshots(rows, customer_lookup):
 
 
 def build_customer_lookup():
-    """Returns {pan: customer_id} for all active customers."""
+    """Returns {plain_pan_or_sha256_pan: customer_id} for all active customers."""
     rows = query("SELECT id, pan FROM customers WHERE is_active = 1")
-    return {row["pan"]: row["id"] for row in rows} if rows else {}
+    return _customer_lookup_from_rows(rows, lambda row: row["id"])
 
 
 def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
@@ -407,9 +454,9 @@ def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
       {
         "plan_json":        [{filename, pan, customer_name, status, detail}, ...],
         "report_html":      [...],
-        "transactions":     {filename, inserted, skipped, detail},
-        "portfolio":        {filename, inserted, skipped, detail},
-        "asset_allocation": {filename, inserted, skipped, detail},
+        "transactions":     [{filename, inserted, skipped, detail}, ...],
+        "portfolio":        [{filename, inserted, skipped, detail}, ...],
+        "asset_allocation": [{filename, inserted, skipped, detail}, ...],
         "unrecognized":     [filenames...],
       }
     """
@@ -422,13 +469,14 @@ def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
     from app.utils import classify_file, find_all_files, make_upload_path, extract_date_from_filename
 
     customer_lookup = build_customer_lookup()
-    pan_lookup       = {row["pan"]: row for row in query(
+    customer_rows   = query(
         "SELECT id, pan, name FROM customers WHERE is_active = 1"
-    )} if customer_lookup else {}
+    )
+    pan_lookup = _customer_lookup_from_rows(customer_rows, lambda row: row)
 
     results = {
         "plan_json": [], "report_html": [],
-        "transactions": None, "portfolio": None, "asset_allocation": None,
+        "transactions": [], "portfolio": [], "asset_allocation": [],
         "unrecognized": [],
     }
 
@@ -452,7 +500,7 @@ def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
     for full_path, filename, file_type, pan in classified:
         if file_type != "report_html":
             continue
-        customer = pan_lookup.get(pan)
+        customer = _lookup_customer_value(pan_lookup, pan)
         if not customer:
             results["report_html"].append({
                 "filename": filename, "pan": pan,
@@ -480,7 +528,7 @@ def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
     for full_path, filename, file_type, pan in classified:
         if file_type != "plan_json":
             continue
-        customer = pan_lookup.get(pan)
+        customer = _lookup_customer_value(pan_lookup, pan)
         if not customer:
             results["plan_json"].append({
                 "filename": filename, "pan": pan,
@@ -532,15 +580,15 @@ def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
                 ins, skp    = insert_transactions(rows, customer_lookup)
                 _, dest_path = make_upload_path(None, "transactions", "xlsx")
                 shutil_copy(full_path, dest_path)
-                results["transactions"] = {
+                results["transactions"].append({
                     "filename": filename, "inserted": ins, "skipped": skp,
                     "detail": f"{ins} inserted, {skp} skipped (unmatched PAN)"
-                }
+                })
             except Exception as e:
-                results["transactions"] = {
+                results["transactions"].append({
                     "filename": filename, "inserted": 0, "skipped": 0,
                     "detail": f"Error: {e}"
-                }
+                })
 
         elif file_type == "portfolio":
             try:
@@ -549,15 +597,15 @@ def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
                 ins, skp      = insert_portfolio_snapshots(rows, customer_lookup)
                 _, dest_path  = make_upload_path(None, "portfolio", "xlsx")
                 shutil_copy(full_path, dest_path)
-                results["portfolio"] = {
+                results["portfolio"].append({
                     "filename": filename, "inserted": ins, "skipped": skp,
                     "detail": f"{ins} inserted, {skp} skipped (unmatched PAN)"
-                }
+                })
             except Exception as e:
-                results["portfolio"] = {
+                results["portfolio"].append({
                     "filename": filename, "inserted": 0, "skipped": 0,
                     "detail": f"Error: {e}"
-                }
+                })
 
         elif file_type == "asset_allocation":
             try:
@@ -567,16 +615,16 @@ def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
                                     aa_result["rows"], customer_lookup)
                 _, dest_path  = make_upload_path(None, "asset_allocation", "xlsx")
                 shutil_copy(full_path, dest_path)
-                results["asset_allocation"] = {
+                results["asset_allocation"].append({
                     "filename": filename, "inserted": ins, "skipped": skp,
                     "detail": f"{ins} inserted, {skp} skipped (unmatched PAN), "
                               f"format={aa_result['format']}"
-                }
+                })
             except Exception as e:
-                results["asset_allocation"] = {
+                results["asset_allocation"].append({
                     "filename": filename, "inserted": 0, "skipped": 0,
                     "detail": f"Error: {e}"
-                }
+                })
 
     return results
 
@@ -713,9 +761,7 @@ def insert_transactions(rows, customer_lookup):
     
     
     for row in rows:
-        clean_pan = decode_pan(row.get("pan"))
-        
-        customer_id = customer_lookup.get(clean_pan)
+        customer_id = _lookup_customer_id(customer_lookup, row.get("pan"))
         if not customer_id:
             skipped += 1
             continue
@@ -768,32 +814,9 @@ def decode_pan(raw_pan):
 
 def classify_file(filename):
     """
-    Classifies files. 
-    Note: Replace the placeholder with your actual 64-char hash.
+    Backwards-compatible wrapper around the shared filename classifier.
     """
-    if filename.startswith('._') or filename == '.DS_Store':
-        return None, None
-
-    filename_lower = filename.lower()
+    from app.utils import classify_file as shared_classify_file
+    return shared_classify_file(filename)
     
     
-    if filename_lower.endswith('.json'):
-        file_type = 'plan_json'
-    elif filename_lower.endswith('.html'):
-        file_type = 'report_html'
-    elif 'transaction' in filename_lower:
-        file_type = 'transactions'
-    elif 'portfolio' in filename_lower:
-        file_type = 'portfolio'
-    elif 'asset' in filename_lower:
-        file_type = 'asset_allocation'
-    else:
-        return None, None
-
-    
-    test_user_hash = "a6e7f4af1aa8da3965bc9726e75b77d12e25c073fc73c03afd0448aa5adb4600"
-    
-    return file_type, test_user_hash
-    
-    
-

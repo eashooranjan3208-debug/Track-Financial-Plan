@@ -27,7 +27,7 @@
           <strong>₹{{ "{:,.0f}".format(investments.target) }}</strong>
         </div>
         <div class="d-flex justify-content-between mb-3">
-          <span class="text-muted">Projected Actual (Avg ₹{{ "{:,.0f}".format(investments.monthly_avg) }}/mo)</span>
+          <span class="text-muted">Actual Net Invested</span>
           <strong class="{% if investments.is_off_track %}text-danger{% else %}text-success{% endif %}">
             ₹{{ "{:,.0f}".format(investments.actual) }}
           </strong>
@@ -57,7 +57,7 @@
           <strong>₹{{ "{:,.0f}".format(portfolio.target) }}</strong>
         </div>
         <div class="d-flex justify-content-between mb-3">
-          <span class="text-muted">Actual (Vasupradha + Held Away)</span>
+          <span class="text-muted">Actual (Vasupradha + Other Financial Assets)</span>
           <strong class="{% if portfolio.is_off_track %}text-danger{% else %}text-success{% endif %}">
             ₹{{ "{:,.0f}".format(portfolio.actual_total) }}
           </strong>

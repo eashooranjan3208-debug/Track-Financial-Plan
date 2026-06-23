@@ -112,11 +112,14 @@
       </div>
       <div class="vp-card-body">
         {% if results.transactions %}
-        <div class="result-file mb-2">{{ results.transactions.filename }}</div>
-        <div class="cf-row"><span class="cf-label">Inserted</span>
-          <span class="cf-value" style="color:var(--vp-success);">{{ results.transactions.inserted }}</span></div>
-        <div class="cf-row"><span class="cf-label">Skipped</span>
-          <span class="cf-value" style="color:var(--vp-warning);">{{ results.transactions.skipped }}</span></div>
+          {% for r in results.transactions %}
+          <div class="result-file mb-2">{{ r.filename }}</div>
+          <div class="cf-row"><span class="cf-label">Inserted</span>
+            <span class="cf-value" style="color:var(--vp-success);">{{ r.inserted }}</span></div>
+          <div class="cf-row"><span class="cf-label">Skipped</span>
+            <span class="cf-value" style="color:var(--vp-warning);">{{ r.skipped }}</span></div>
+          <p class="small mb-3" style="color:var(--vp-text-muted);">{{ r.detail }}</p>
+          {% endfor %}
         {% else %}
         <p class="text-center small mb-0" style="color:var(--vp-text-muted);">Not in ZIP</p>
         {% endif %}
@@ -131,11 +134,14 @@
       </div>
       <div class="vp-card-body">
         {% if results.portfolio %}
-        <div class="result-file mb-2">{{ results.portfolio.filename }}</div>
-        <div class="cf-row"><span class="cf-label">Inserted</span>
-          <span class="cf-value" style="color:var(--vp-success);">{{ results.portfolio.inserted }}</span></div>
-        <div class="cf-row"><span class="cf-label">Skipped</span>
-          <span class="cf-value" style="color:var(--vp-warning);">{{ results.portfolio.skipped }}</span></div>
+          {% for r in results.portfolio %}
+          <div class="result-file mb-2">{{ r.filename }}</div>
+          <div class="cf-row"><span class="cf-label">Inserted</span>
+            <span class="cf-value" style="color:var(--vp-success);">{{ r.inserted }}</span></div>
+          <div class="cf-row"><span class="cf-label">Skipped</span>
+            <span class="cf-value" style="color:var(--vp-warning);">{{ r.skipped }}</span></div>
+          <p class="small mb-3" style="color:var(--vp-text-muted);">{{ r.detail }}</p>
+          {% endfor %}
         {% else %}
         <p class="text-center small mb-0" style="color:var(--vp-text-muted);">Not in ZIP</p>
         {% endif %}
@@ -150,11 +156,14 @@
       </div>
       <div class="vp-card-body">
         {% if results.asset_allocation %}
-        <div class="result-file mb-2">{{ results.asset_allocation.filename }}</div>
-        <div class="cf-row"><span class="cf-label">Inserted</span>
-          <span class="cf-value" style="color:var(--vp-success);">{{ results.asset_allocation.inserted }}</span></div>
-        <div class="cf-row"><span class="cf-label">Skipped</span>
-          <span class="cf-value" style="color:var(--vp-warning);">{{ results.asset_allocation.skipped }}</span></div>
+          {% for r in results.asset_allocation %}
+          <div class="result-file mb-2">{{ r.filename }}</div>
+          <div class="cf-row"><span class="cf-label">Inserted</span>
+            <span class="cf-value" style="color:var(--vp-success);">{{ r.inserted }}</span></div>
+          <div class="cf-row"><span class="cf-label">Skipped</span>
+            <span class="cf-value" style="color:var(--vp-warning);">{{ r.skipped }}</span></div>
+          <p class="small mb-3" style="color:var(--vp-text-muted);">{{ r.detail }}</p>
+          {% endfor %}
         {% else %}
         <p class="text-center small mb-0" style="color:var(--vp-text-muted);">Not in ZIP</p>
         {% endif %}

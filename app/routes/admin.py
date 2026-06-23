@@ -15,7 +15,7 @@ from app.utils import (
 )
 from app.database import query
 from app.services.customer_service import get_all_customers
-from app.services.plan_service import get_dashboard_data
+from app.services.plan_service import get_dashboard_data, get_tracking_data
 from app.services.customer_service import get_customer_by_id
 from app.services.admin_service import (
     get_dashboard_stats,
@@ -355,9 +355,6 @@ def customer_dashboard(customer_id):
         customer_id=customer_id,
         **data
     )
-
-# Add this to your imports at the top of admin.py:
-# from app.services.plan_service import get_tracking_data
 
 @admin_bp.route("/customer/<int:customer_id>/tracking")
 @admin_required

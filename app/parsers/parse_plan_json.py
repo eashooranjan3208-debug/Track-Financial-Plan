@@ -177,7 +177,10 @@ def _cashflow(d):
     
     for col in ["projected_investments", "projected_expenses", "projected_portfolio_value"]:
         if col not in df.columns: df[col] = 0.0
-        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
+        df[col] = pd.to_numeric(
+            df[col].astype(str).str.replace(',', '', regex=False),
+            errors="coerce"
+        ).fillna(0.0)
 
     df["calendar_year"] = pd.to_numeric(df["calendar_year"], errors="coerce").fillna(0).astype(int)
     df = df[df["calendar_year"] > 0].sort_values("calendar_year")
@@ -191,7 +194,10 @@ def _current_assets(d):
     if df.empty: return []
     
     df = df.rename(columns={"name": "asset_name"})
-    df["current_value"] = pd.to_numeric(df.get("current_value", pd.Series()), errors="coerce").fillna(0.0)
+    df["current_value"] = pd.to_numeric(
+        df.get("current_value", pd.Series()).astype(str).str.replace(',', '', regex=False),
+        errors="coerce"
+    ).fillna(0.0)
     if "asset_class" not in df.columns: df["asset_class"] = None
     
     return df[["asset_name", "asset_class", "current_value"]].replace({pd.NA: None, float('nan'): None}).to_dict(orient="records")
@@ -224,7 +230,10 @@ def _other_assets(d):
         "maturity_amt": "maturity_value"
     })
     
-    df["maturity_value"] = pd.to_numeric(df.get("maturity_value", pd.Series()), errors="coerce").fillna(0.0)
+    df["maturity_value"] = pd.to_numeric(
+        df.get("maturity_value", pd.Series()).astype(str).str.replace(',', '', regex=False),
+        errors="coerce"
+    ).fillna(0.0)
     df["maturity_year"] = pd.to_numeric(df.get("maturity_year", pd.Series()), errors="coerce").fillna(0).astype(int)
     
     for col in ["asset_type", "notes"]:

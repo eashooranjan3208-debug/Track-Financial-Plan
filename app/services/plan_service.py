@@ -388,111 +388,152 @@ def get_portfolio_by_account(customer_id):
     )
 
 
+def _money(value):
+    if value is None:
+        return 0
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _asset_bucket(asset_name):
+    text = str(asset_name or "").strip()
+    lowered = text.lower()
+
+    if "equity" in lowered or "stock" in lowered or "share" in lowered:
+        return "Equity"
+    if "debt" in lowered or "bond" in lowered or "fixed" in lowered:
+        return "Debt"
+    if "liquid" in lowered or "cash" in lowered or "money market" in lowered:
+        return "Liquid"
+    if "gold" in lowered or "commodity" in lowered:
+        return "Gold"
+    return text.title() if text else "Other"
+
+
+def _target_allocation_map(plan):
+    return {
+        "Equity": _money(plan.get("weight_equity")),
+        "Debt": _money(plan.get("weight_debt")),
+        "Liquid": _money(plan.get("weight_liquid")),
+        "Gold": _money(plan.get("weight_gold")),
+    }
+
+
+def _latest_allocation_snapshot(customer_id):
+    result = query(
+        """
+        SELECT MAX(snapshot_date) AS snapshot_date
+        FROM asset_allocation
+        WHERE customer_id = %s
+        """,
+        params=(customer_id,),
+        fetchone=True
+    )
+    return result.get("snapshot_date") if result else None
+
+
 # ── Asset allocation snapshots ─────────────────────────────────
 # Confirmed columns: customer_id, snapshot_date, asset_name,
 #                    target_pct, current_pct, current_value,
 #                    target_value, raw_diff, final_trade
 
-def get_latest_asset_allocation(customer_id):
+def get_latest_asset_allocation(customer_id, plan=None):
     """
-    Groups asset allocation into specific buckets, calculates exact percentages,
-    and flags any category that deviates > 10% from the target as off-track.
+    Compare JSON target weights against actual allocation.
+    Actual allocation = current assets from the plan JSON + latest Vasupradha
+    allocation snapshot from Excel.
     """
-    # 1. Get the total portfolio value to calculate accurate percentages
-    total_query = query(
-        """
-        SELECT SUM(current_value) AS total
-        FROM customer_asset_allocation_snapshots
-        WHERE customer_id = %s
-          AND snapshot_date = (
-              SELECT MAX(snapshot_date)
-              FROM customer_asset_allocation_snapshots
-              WHERE customer_id = %s
-          )
-        """,
-        params=(customer_id, customer_id),
-        fetchone=True
-    )
-    
-    total_value = total_query["total"] if total_query and total_query["total"] else 0
+    plan = plan or get_current_plan(customer_id)
+    if not plan:
+        return []
 
-    # 2. Group the assets by their raw class string (lowercased for safety)
-    rows = query(
-        """
-        SELECT
-            LOWER(TRIM(asset_name)) AS raw_class,
-            MAX(asset_name) AS display_name,
-            SUM(current_value) AS current_value,
-            MAX(target_pct) AS target_pct,
-            MAX(snapshot_date) AS snapshot_date
-        FROM customer_asset_allocation_snapshots
-        WHERE customer_id = %s
-          AND snapshot_date = (
-              SELECT MAX(snapshot_date)
-              FROM customer_asset_allocation_snapshots
-              WHERE customer_id = %s
-          )
-        GROUP BY raw_class
-        ORDER BY current_value DESC
-        """,
-        params=(customer_id, customer_id)
-    )
-    
-    # 3. Process the buckets and apply the > 10% deviation rule
-    valid_classes = {'equity', 'debt', 'hybrid', 'solution', 'commodity'}
+    plan_id = plan["id"]
+    targets = _target_allocation_map(plan)
+    buckets = {}
+
+    def add_value(asset_name, amount):
+        bucket = _asset_bucket(asset_name)
+        if bucket not in buckets:
+            buckets[bucket] = 0
+        buckets[bucket] += _money(amount)
+
+    for asset in get_current_assets(plan_id) or []:
+        add_value(asset.get("asset_class") or asset.get("asset_name"), asset.get("current_value"))
+
+    snapshot_date = _latest_allocation_snapshot(customer_id)
+    if snapshot_date:
+        rows = query(
+            """
+            SELECT asset_name, SUM(current_value) AS current_value
+            FROM asset_allocation
+            WHERE customer_id = %s AND snapshot_date = %s
+            GROUP BY asset_name
+            """,
+            params=(customer_id, snapshot_date)
+        )
+        for row in rows or []:
+            add_value(row.get("asset_name"), row.get("current_value"))
+
+    total_value = sum(buckets.values())
+    if total_value <= 0:
+        return []
+
+    for asset_name, target_pct in targets.items():
+        if target_pct > 0 and asset_name not in buckets:
+            buckets[asset_name] = 0
+
+    order = {"Equity": 1, "Debt": 2, "Liquid": 3, "Gold": 4}
     final_rows = []
-    
-    for row in rows:
-        raw_class = row["raw_class"] or "other"
-        
-        # Enforce your strict naming convention
-        if raw_class in valid_classes:
-            asset_name = raw_class.title()
-        else:
-            asset_name = row["display_name"]
-            
-        c_val = row["current_value"] or 0
-        target_pct = row.get("target_pct") or 0
-        
-        # Calculate mathematically perfect current percentage
-        current_pct = round((c_val / total_value) * 100, 2) if total_value > 0 else 0
-        
-        # IMPLEMENT DEVIATION RULE: Off track if difference is > 10
-        is_off_track = abs(current_pct - target_pct) > 10
-        
+
+    for asset_name, current_value in sorted(
+        buckets.items(),
+        key=lambda item: (order.get(item[0], 99), -item[1], item[0])
+    ):
+        target_pct = targets.get(asset_name, 0)
+        current_pct = round((current_value / total_value) * 100, 2)
         final_rows.append({
             "asset_name": asset_name,
-            "current_value": c_val,
+            "current_value": current_value,
             "current_pct": current_pct,
             "target_pct": target_pct,
-            "is_off_track": is_off_track,
-            "snapshot_date": row["snapshot_date"]
+            "is_off_track": abs(current_pct - target_pct) > 10,
+            "snapshot_date": snapshot_date,
         })
-        
+
     return final_rows
 
-def get_asset_allocation_total(customer_id):
+def get_asset_allocation_total(customer_id, plan=None):
     """
-    Calculates the total portfolio value and snapshot date from the allocation file.
+    Total value considered for allocation tracking.
+    Includes current assets from JSON plus latest Vasupradha allocation snapshot.
     """
-    result = query(
-        """
-        SELECT
-            COALESCE(SUM(current_value), 0) AS total_value,
-            snapshot_date
-        FROM customer_asset_allocation_snapshots
-        WHERE customer_id = %s
-          AND snapshot_date = (
-              SELECT MAX(snapshot_date)
-              FROM customer_asset_allocation_snapshots
-              WHERE customer_id = %s
-          )
-        GROUP BY snapshot_date
-        """,
-        params=(customer_id, customer_id),
-        fetchone=True
-    )
-    return result or {"total_value": 0, "snapshot_date": None}
+    plan = plan or get_current_plan(customer_id)
+    if not plan:
+        return {"total_value": 0, "snapshot_date": None}
+
+    plan_id = plan["id"]
+    current_assets_total = get_current_assets_total(plan_id)
+    snapshot_date = _latest_allocation_snapshot(customer_id)
+    allocation_total = 0
+
+    if snapshot_date:
+        result = query(
+            """
+            SELECT COALESCE(SUM(current_value), 0) AS total_value
+            FROM asset_allocation
+            WHERE customer_id = %s AND snapshot_date = %s
+            """,
+            params=(customer_id, snapshot_date),
+            fetchone=True
+        )
+        allocation_total = result.get("total_value", 0) if result else 0
+
+    return {
+        "total_value": _money(current_assets_total) + _money(allocation_total),
+        "snapshot_date": snapshot_date,
+    }
 
 # ── Held Away Assets ───────────────────────────────────────────
 # Confirmed columns: customer_id, asset_name, asset_type,
@@ -569,8 +610,8 @@ def get_dashboard_data(customer_id):
         "portfolio_latest": get_latest_portfolio_value(customer_id),
         "portfolio_accounts": get_portfolio_by_account(customer_id),
         "portfolio_history": get_portfolio_history(customer_id),
-        "allocation_rows": get_latest_asset_allocation(customer_id),
-        "allocation_total": get_asset_allocation_total(customer_id),
+        "allocation_rows": get_latest_asset_allocation(customer_id, plan),
+        "allocation_total": get_asset_allocation_total(customer_id, plan),
         "other_assets": get_other_assets(customer_id),
         "other_assets_with_id": get_other_assets_with_id(customer_id),
         "archived_plans": get_archived_plans(customer_id)
@@ -592,19 +633,17 @@ def get_tracking_data(customer_id):
     # ── 1. Target vs Actual Investments ──
     vasu_summary = get_vasupradha_investments_summary(customer_id,cycle_start)
     monthly_avg = vasu_summary.get("monthly_average", 0)
-    
-    # Project current monthly average to the whole year
-    actual_annual_investment = monthly_avg * 12
+    actual_investment = vasu_summary.get("net_invested", 0) or 0
     target_annual_investment = plan.get("target_surplus", 0) or 0
 
     inv_deviation = 0
     if target_annual_investment > 0:
-        inv_deviation = abs(actual_annual_investment - target_annual_investment) / target_annual_investment * 100
+        inv_deviation = abs(actual_investment - target_annual_investment) / target_annual_investment * 100
     
     inv_off_track = inv_deviation > 10
 
     # ── 2. Target vs Actual Asset Allocation ──
-    allocations = get_latest_asset_allocation(customer_id)
+    allocations = get_latest_asset_allocation(customer_id, plan)
 
     # ── 3. Target vs Actual Portfolio Value ──
     cf_year = get_cashflow_for_year(plan_id, current_year)
@@ -613,11 +652,12 @@ def get_tracking_data(customer_id):
     port_latest = get_latest_portfolio_value(customer_id)
     vasu_port_val = port_latest.get("total_value", 0) if port_latest else 0
 
+    current_assets_val = get_current_assets_total(plan_id)
     other_assets = get_other_assets(customer_id)
     other_assets_val = sum(a.get("current_value", 0) for a in other_assets) if other_assets else 0
 
-    # Actual = Vasupradha Assets + Held Away (Other) Assets
-    actual_portfolio = vasu_port_val + other_assets_val
+    # Actual = Vasupradha assets + other financial assets.
+    actual_portfolio = vasu_port_val + current_assets_val + other_assets_val
 
     port_deviation = 0
     if target_portfolio > 0:
@@ -629,7 +669,7 @@ def get_tracking_data(customer_id):
         "plan": plan,
         "investments": {
             "target": target_annual_investment,
-            "actual": actual_annual_investment,
+            "actual": actual_investment,
             "monthly_avg": monthly_avg,
             "deviation_pct": inv_deviation,
             "is_off_track": inv_off_track
@@ -638,6 +678,7 @@ def get_tracking_data(customer_id):
         "portfolio": {
             "target": target_portfolio,
             "actual_vasu": vasu_port_val,
+            "actual_current_assets": current_assets_val,
             "actual_other": other_assets_val,
             "actual_total": actual_portfolio,
             "deviation_pct": port_deviation,

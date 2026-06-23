@@ -8,8 +8,8 @@ from werkzeug.utils import secure_filename
 
 # ── FILENAME CONVENTIONS ──
 FILENAME_PATTERNS = {
-    "plan_json":        re.compile(r"^\d{8}_\d{6}_([A-Za-z0-9]+)_plan\.json$", re.IGNORECASE),
-    "report_html":      re.compile(r"^\d{8}_\d{6}_([A-Za-z0-9]+)_report\.html?$", re.IGNORECASE),
+    "plan_json":        re.compile(r"^\d{8}_\d{6}_([A-Za-z0-9]{8,64})_plan\.json$", re.IGNORECASE),
+    "report_html":      re.compile(r"^\d{8}_\d{6}_([A-Za-z0-9]{8,64})_report\.html?$", re.IGNORECASE),
     "transactions":     re.compile(r"^\d{8}_\d{6}_transactions\.xlsx?$", re.IGNORECASE),
     "portfolio":        re.compile(r"^\d{8}_\d{6}_portfolio\.xlsx?$", re.IGNORECASE),
     "asset_allocation": re.compile(r"^\d{8}_\d{6}_asset_allocation\.xlsx?$", re.IGNORECASE),

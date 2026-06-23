@@ -3,8 +3,7 @@ from flask import Blueprint, render_template, session, redirect, url_for, flash,
 from functools import wraps
 from flask import send_file
 
-# Cleaned up imports: only importing what we actually use
-from app.services.plan_service import get_current_plan, get_dashboard_data,get_tracking_data, get_current_plan
+from app.services.plan_service import get_current_plan, get_dashboard_data, get_tracking_data
 from app.services.customer_service import get_customer_by_id
 
 customer_bp = Blueprint("customer", __name__, url_prefix="/customer")
@@ -125,6 +124,7 @@ def dev_login(customer_id):
     return redirect(url_for('customer.dashboard'))
 
 @customer_bp.route("/my-plan")
+@customer_required
 def my_plan():
     # If using your Impersonation feature, check that first
     customer_id = session.get("impersonated_customer_id") or session.get("user_id")
@@ -133,6 +133,7 @@ def my_plan():
     return render_template("customer/my_plan.html", plan=plan)
 
 @customer_bp.route("/tracking")
+@customer_required
 def tracking():
     customer_id = session.get("impersonated_customer_id") or session.get("user_id")
     
