@@ -15,8 +15,8 @@ def parse_transactions(file_path, upload_date=None):
     except Exception as e:
         raise ValueError(f"Failed to read Excel file {Path(file_path).name}: {str(e)}")
 
-    # 1. Validate Columns
-    required = {"PAN", "TRANSACTION DATE", "TOTAL AMOUNT", "PAN_SOURCE"}
+    # --- FIX 1: Removed PAN_SOURCE from the required list ---
+    required = {"PAN", "TRANSACTION DATE", "TOTAL AMOUNT"}
     missing = required - set(df.columns)
     if missing:
         raise ValueError(f"{Path(file_path).name}: missing columns {missing}")
@@ -46,13 +46,16 @@ def parse_transactions(file_path, upload_date=None):
     if applicant_name is not None:
         applicant_name = applicant_name.replace({"nan": None, "": None})
 
-    # 6. Extract Account Type from PAN_SOURCE
-    df["PAN_SOURCE"] = df["PAN_SOURCE"].astype(str).str.strip().replace({"nan": "", "None": ""})
-    
-    # Vectorized extraction: Find rows with '_', split them from the right, take the last piece
-    has_underscore = df["PAN_SOURCE"].str.contains('_', na=False)
-    df["account_type"] = None
-    df.loc[has_underscore, "account_type"] = df.loc[has_underscore, "PAN_SOURCE"].str.rsplit('_', n=1).str[-1]
+    # --- FIX 2: Safely handle PAN_SOURCE if it doesn't exist in the Excel file ---
+    if "PAN_SOURCE" in df.columns:
+        df["PAN_SOURCE"] = df["PAN_SOURCE"].astype(str).str.strip().replace({"nan": "", "None": ""})
+        has_underscore = df["PAN_SOURCE"].str.contains('_', na=False)
+        df["account_type"] = None
+        df.loc[has_underscore, "account_type"] = df.loc[has_underscore, "PAN_SOURCE"].str.rsplit('_', n=1).str[-1]
+    else:
+        # If the column isn't in the Excel file, just default them to None
+        df["PAN_SOURCE"] = None
+        df["account_type"] = None
 
     # 7. Construct Final DataFrame
     final_df = pd.DataFrame({

@@ -1,5 +1,8 @@
 from app.database import query
 from datetime import date
+import os
+import hashlib
+from flask import current_app
 
 
 # ── Plan retrieval ─────────────────────────────────────────────
@@ -685,3 +688,30 @@ def get_tracking_data(customer_id):
             "is_off_track": port_off_track
         }
     }
+def get_customer_json_filepath(raw_pan):
+    """
+    Generate the secure file path for a customer's JSON plan based on their PAN.
+    Uses SHA-256 hashing to prevent IDOR vulnerabilities.
+    """
+    if not raw_pan:
+        return None
+
+    # Clean the PAN string (remove spaces, standardize to uppercase)
+    clean_pan = str(raw_pan).strip().upper()
+
+    # Hash the PAN using SHA-256 (This ensures the raw PAN is never exposed in the URL/Filesystem)
+    # IMPORTANT: If your Admin upload script uses a different encoding method (like base64), 
+    # replace this line with your specific encoding logic.
+    hashed_pan = hashlib.sha256(clean_pan.encode('utf-8')).hexdigest()
+    
+    # Define the filename
+    filename = f"{hashed_pan}.json"
+    
+    # Define the storage directory. 
+    # This checks your Flask config for 'PLAN_STORAGE_DIR'. 
+    # If not set, it defaults to a folder named 'storage/plans' in your project root.
+    default_storage = os.path.join(current_app.root_path, '..', 'storage', 'plans')
+    storage_dir = current_app.config.get('PLAN_STORAGE_DIR', default_storage)
+    
+    # Return the absolute path to the file
+    return os.path.join(storage_dir, filename)

@@ -10,12 +10,13 @@
   </div>
 </div>
 
+{% if has_plan %}
 <div class="row g-4">
   <div class="col-md-6">
-    <div class="vp-card h-100 {% if investments.is_off_track %}border-danger{% else %}border-success{% endif %}">
+    <div class="vp-card h-100 {% if investment.status == 'Off Track' %}border-danger{% else %}border-success{% endif %}">
       <div class="vp-card-header d-flex justify-content-between">
         <h5 class="vp-card-title"><i class="bi bi-graph-up-arrow"></i> Annual Investments</h5>
-        {% if investments.is_off_track %}
+        {% if investment.status == 'Off Track' %}
           <span class="vp-badge vp-badge-danger"><i class="bi bi-exclamation-triangle-fill"></i> Off Track (>10% dev)</span>
         {% else %}
           <span class="vp-badge vp-badge-success"><i class="bi bi-check-circle-fill"></i> On Track</span>
@@ -24,28 +25,28 @@
       <div class="vp-card-body">
         <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
           <span class="text-muted">Target (JSON Surplus)</span>
-          <strong>₹{{ "{:,.0f}".format(investments.target) }}</strong>
+          <strong>₹{{ "{:,.0f}".format(investment.target_surplus) }}</strong>
         </div>
         <div class="d-flex justify-content-between mb-3">
           <span class="text-muted">Actual Net Invested</span>
-          <strong class="{% if investments.is_off_track %}text-danger{% else %}text-success{% endif %}">
-            ₹{{ "{:,.0f}".format(investments.actual) }}
+          <strong class="{% if investment.status == 'Off Track' %}text-danger{% else %}text-success{% endif %}">
+            ₹{{ "{:,.0f}".format(investment.actual_investments) }}
           </strong>
         </div>
         <div class="progress" style="height: 8px;">
-          <div class="progress-bar {% if investments.is_off_track %}bg-danger{% else %}bg-success{% endif %}" 
-               style="width: {{ [ (investments.actual / (investments.target or 1)) * 100, 100 ] | min }}%"></div>
+          <div class="progress-bar {% if investment.status == 'Off Track' %}bg-danger{% else %}bg-success{% endif %}" 
+               style="width: {{ [ (investment.actual_investments / (investment.target_surplus or 1)) * 100, 100 ] | min }}%"></div>
         </div>
-        <p class="small text-muted mt-2 text-end">{{ "{:.1f}".format(investments.deviation_pct) }}% Deviation</p>
+        <p class="small text-muted mt-2 text-end">{{ "{:,.1f}".format(investment.deviation_pct) }}% Deviation</p>
       </div>
     </div>
   </div>
 
   <div class="col-md-6">
-    <div class="vp-card h-100 {% if portfolio.is_off_track %}border-danger{% else %}border-success{% endif %}">
+    <div class="vp-card h-100 {% if portfolio.status == 'Off Track' %}border-danger{% else %}border-success{% endif %}">
       <div class="vp-card-header d-flex justify-content-between">
         <h5 class="vp-card-title"><i class="bi bi-briefcase-fill"></i> Total Portfolio Value</h5>
-        {% if portfolio.is_off_track %}
+        {% if portfolio.status == 'Off Track' %}
           <span class="vp-badge vp-badge-danger"><i class="bi bi-exclamation-triangle-fill"></i> Off Track (>10% dev)</span>
         {% else %}
           <span class="vp-badge vp-badge-success"><i class="bi bi-check-circle-fill"></i> On Track</span>
@@ -54,19 +55,19 @@
       <div class="vp-card-body">
         <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
           <span class="text-muted">Target (Expected Value this year)</span>
-          <strong>₹{{ "{:,.0f}".format(portfolio.target) }}</strong>
+          <strong>₹{{ "{:,.0f}".format(portfolio.target_portfolio) }}</strong>
         </div>
         <div class="d-flex justify-content-between mb-3">
-          <span class="text-muted">Actual (Vasupradha + Other Financial Assets)</span>
-          <strong class="{% if portfolio.is_off_track %}text-danger{% else %}text-success{% endif %}">
-            ₹{{ "{:,.0f}".format(portfolio.actual_total) }}
+          <span class="text-muted">Actual (Vasupradah + Other Financial Assets)</span>
+          <strong class="{% if portfolio.status == 'Off Track' %}text-danger{% else %}text-success{% endif %}">
+            ₹{{ "{:,.0f}".format(portfolio.actual_portfolio) }}
           </strong>
         </div>
         <div class="progress" style="height: 8px;">
-          <div class="progress-bar {% if portfolio.is_off_track %}bg-danger{% else %}bg-success{% endif %}" 
-               style="width: {{ [ (portfolio.actual_total / (portfolio.target or 1)) * 100, 100 ] | min }}%"></div>
+          <div class="progress-bar {% if portfolio.status == 'Off Track' %}bg-danger{% else %}bg-success{% endif %}" 
+               style="width: {{ [ (portfolio.actual_portfolio / (portfolio.target_portfolio or 1)) * 100, 100 ] | min }}%"></div>
         </div>
-        <p class="small text-muted mt-2 text-end">{{ "{:.1f}".format(portfolio.deviation_pct) }}% Deviation</p>
+        <p class="small text-muted mt-2 text-end">{{ "{:,.1f}".format(portfolio.deviation_pct) }}% Deviation</p>
       </div>
     </div>
   </div>
@@ -89,14 +90,14 @@
           <tbody>
             {% for row in allocations %}
             <tr>
-              <td class="fw-bold">{{ row.asset_name }}</td>
-              <td>{{ row.target_pct }}%</td>
-              <td class="fw-bold">{{ row.current_pct }}%</td>
+              <td class="fw-bold">{{ row.class_name }}</td>
+              <td>{{ "{:,.1f}".format(row.target_pct) }}%</td>
+              <td class="fw-bold">{{ "{:,.1f}".format(row.actual_pct) }}%</td>
               <td>
-                {% if row.is_off_track %}
-                  <span class="text-danger fw-bold"><i class="bi bi-x-circle-fill"></i> Off Track</span>
+                {% if row.status == 'Action Req' %}
+                  <span class="text-danger fw-bold"><i class="bi bi-x-circle-fill"></i> Action Req</span>
                 {% else %}
-                  <span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> On Track</span>
+                  <span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> In Line</span>
                 {% endif %}
               </td>
             </tr>
@@ -107,4 +108,12 @@
     </div>
   </div>
 </div>
+
+{% else %}
+  <div class="text-center py-5 bg-white rounded border shadow-sm mt-4">
+      <i class="bi bi-flag text-muted" style="font-size: 2rem;"></i>
+      <p class="text-muted mt-3 mb-0">No goals found. Upload a financial plan JSON to populate tracking.</p>
+  </div>
+{% endif %}
+
 {% endblock %}

@@ -10,6 +10,9 @@ from parse_plan_json import parse_plan_json
 from parse_transactions import parse_transactions
 from parse_portfolio import parse_portfolio
 from parse_asset_allocation import parse_asset_allocation
+import shutil
+from app.utils import classify_file, find_all_files, make_upload_path, extract_date_from_filename
+from collections import defaultdict
 
 SHA256_RE = re.compile(r"^[a-f0-9]{64}$", re.IGNORECASE)
 
@@ -394,21 +397,36 @@ def insert_portfolio_snapshots(rows, customer_lookup):
 def insert_asset_allocation_snapshots(rows, customer_lookup):
     """
     Table is 'asset_allocation' (confirmed existing).
-    Columns: customer_id, snapshot_date, asset_name,
+    Columns: customer_id, snapshot_date, asset_class,
              target_pct, current_pct, current_value,
              target_value, raw_diff, final_trade
     """
     inserted = skipped = 0
+    
     for row in rows:
         customer_id = _lookup_customer_id(customer_lookup, row.get("pan"))
+        
         if not customer_id:
             skipped += 1
             continue
+            
         try:
+            # Bulletproof Casting
+            target_pct    = float(row.get("target_pct") or 0)
+            current_pct   = float(row.get("current_pct") or 0)
+            current_value = float(row.get("current_value") or 0)
+            target_value  = float(row.get("target_value") or 0)
+            raw_diff      = float(row.get("raw_diff") or 0)
+            final_trade   = float(row.get("final_trade") or 0)
+            
+            # Safely get the asset name
+            asset_name_val = row.get("asset_name") or row.get("asset_class") or "Unknown"
+
+            # 2. Insert into Database (FIX: Changed asset_name to asset_class in the SQL)
             query(
                 """
-                INSERT INTO asset_allocation (
-                    customer_id, snapshot_date, asset_name,
+                INSERT INTO customer_asset_allocation_snapshots (
+                    customer_id, snapshot_date, asset_name, 
                     target_pct, current_pct, current_value,
                     target_value, raw_diff, final_trade
                 ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
@@ -416,63 +434,61 @@ def insert_asset_allocation_snapshots(rows, customer_lookup):
                 params=(
                     customer_id,
                     row.get("snapshot_date"),
-                    row.get("asset_class") or row.get("asset_name"),
-                    row.get("target_pct", 0),
-                    row.get("current_pct", 0),
-                    row.get("current_value", 0),
-                    row.get("target_value", 0),
-                    row.get("raw_diff", 0),
-                    row.get("final_trade", 0),
+                    asset_name_val,
+                    target_pct,
+                    current_pct,
+                    current_value,
+                    target_value,
+                    raw_diff,
+                    final_trade,
                 ),
                 commit=True
             )
             inserted += 1
-        except Exception:
+            
+        except Exception as e:
+            print(f"❌ [DB ERROR] Failed to insert Asset Allocation row: {e}")
             skipped += 1
+            
     return inserted, skipped
 
-
 def build_customer_lookup():
-    """Returns {plain_pan_or_sha256_pan: customer_id} for all active customers."""
+    """
+    Builds a dictionary mapping BOTH raw PANs and SHA-256 Hashed PANs to customer IDs.
+    Used by the Excel parsers (transactions, portfolio, asset allocation).
+    """
     rows = query("SELECT id, pan FROM customers WHERE is_active = 1")
-    return _customer_lookup_from_rows(rows, lambda row: row["id"])
+    lookup = {}
+
+    for row in rows or []:
+        if row.get("pan"):
+            raw_pan = str(row["pan"]).strip().upper()
+            customer_id = row["id"]
+
+            # 1. Map the raw PAN (e.g., 'TESTP1234X' -> ID 1)
+            lookup[raw_pan] = customer_id
+
+            # 2. Map the hashed PAN (e.g., 'a6e7f4af...' -> ID 1)
+            hashed_pan = hashlib.sha256(raw_pan.encode('utf-8')).hexdigest()
+            lookup[hashed_pan] = customer_id
+
+    return lookup
 
 
 def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
     """
     Process a directory of extracted bulk-upload files.
-
-    For each file:
-      - Classify by filename pattern
-      - Per-customer files (plan_json, report_html): match PAN from filename
-      - System-wide files (transactions, portfolio, asset_allocation):
-        parse and match PAN per-row using customer_lookup
-      - Save file to permanent storage using existing naming convention
-      - Call existing parsers + insert functions (unchanged)
-
-    Returns a results dict:
-      {
-        "plan_json":        [{filename, pan, customer_name, status, detail}, ...],
-        "report_html":      [...],
-        "transactions":     [{filename, inserted, skipped, detail}, ...],
-        "portfolio":        [{filename, inserted, skipped, detail}, ...],
-        "asset_allocation": [{filename, inserted, skipped, detail}, ...],
-        "unrecognized":     [filenames...],
-      }
     """
-    import sys
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "parsers"))
-    from parse_plan_json import parse_plan_json
-    from parse_transactions import parse_transactions
-    from parse_portfolio import parse_portfolio
-    from parse_asset_allocation import parse_asset_allocation
-    from app.utils import classify_file, find_all_files, make_upload_path, extract_date_from_filename
-
     customer_lookup = build_customer_lookup()
-    customer_rows   = query(
-        "SELECT id, pan, name FROM customers WHERE is_active = 1"
-    )
+    customer_rows   = query("SELECT id, pan, name FROM customers WHERE is_active = 1")
     pan_lookup = _customer_lookup_from_rows(customer_rows, lambda row: row)
+
+    hashed_pan_lookup = {}
+    for row in customer_rows or []:
+        if row.get("pan"):
+            raw_pan = str(row["pan"]).strip().upper()
+            hashed_val = hashlib.sha256(raw_pan.encode('utf-8')).hexdigest()
+            hashed_pan_lookup[hashed_val] = row
 
     results = {
         "plan_json": [], "report_html": [],
@@ -480,65 +496,59 @@ def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
         "unrecognized": [],
     }
 
-    
     html_paths_by_pan = {}
-
     all_files = find_all_files(extract_dir)
 
     classified = []
     for full_path, filename in all_files:
-        
         file_type, clean_pan = classify_file(filename)
-        
         if file_type is None:
             results["unrecognized"].append(filename)
             continue
-            
         classified.append((full_path, filename, file_type, clean_pan))
         
-
+    # --- 1. PROCESS HTML REPORTS ---
     for full_path, filename, file_type, pan in classified:
         if file_type != "report_html":
             continue
-        customer = _lookup_customer_value(pan_lookup, pan)
+        customer = hashed_pan_lookup.get(pan) or _lookup_customer_value(pan_lookup, pan)
         if not customer:
             results["report_html"].append({
-                "filename": filename, "pan": pan,
-                "customer_name": None,
+                "filename": filename, "pan": pan, "customer_name": None,
                 "status": "unmatched", "detail": f"No customer found for PAN {pan}"
             })
             continue
         try:
             _, dest_path = make_upload_path(pan, "report", "html")
-            shutil_copy(full_path, dest_path)
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            shutil.copy2(full_path, dest_path)
             html_paths_by_pan[pan] = dest_path
+            
             results["report_html"].append({
-                "filename": filename, "pan": pan,
-                "customer_name": customer["name"],
+                "filename": filename, "pan": pan, "customer_name": customer["name"],
                 "status": "saved", "detail": "Report stored"
             })
         except Exception as e:
             results["report_html"].append({
-                "filename": filename, "pan": pan,
-                "customer_name": customer["name"],
+                "filename": filename, "pan": pan, "customer_name": customer["name"],
                 "status": "failed", "detail": str(e)
             })
 
-    
+    # --- 2. PROCESS JSON PLANS ---
     for full_path, filename, file_type, pan in classified:
         if file_type != "plan_json":
             continue
-        customer = _lookup_customer_value(pan_lookup, pan)
+        customer = hashed_pan_lookup.get(pan) or _lookup_customer_value(pan_lookup, pan)
         if not customer:
             results["plan_json"].append({
-                "filename": filename, "pan": pan,
-                "customer_name": None,
+                "filename": filename, "pan": pan, "customer_name": None,
                 "status": "unmatched", "detail": f"No customer found for PAN {pan}"
             })
             continue
         try:
             _, dest_path = make_upload_path(pan, "plan", "json")
-            shutil_copy(full_path, dest_path)
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            shutil.copy2(full_path, dest_path)
 
             parsed = parse_plan_json(dest_path)
 
@@ -559,75 +569,123 @@ def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
             insert_other_assets(customer["id"], plan_id, parsed["other_assets"])
 
             results["plan_json"].append({
-                "filename": filename, "pan": pan,
-                "customer_name": customer["name"],
-                "status": "imported",
-                "detail": f"{len(parsed['goals'])} goals, {len(parsed['cashflow'])} cashflow rows"
+                "filename": filename, "pan": pan, "customer_name": customer["name"],
+                "status": "imported", "detail": f"{len(parsed['goals'])} goals, {len(parsed['cashflow'])} cashflow rows"
             })
         except Exception as e:
             results["plan_json"].append({
-                "filename": filename, "pan": pan,
-                "customer_name": customer["name"],
+                "filename": filename, "pan": pan, "customer_name": customer["name"],
                 "status": "failed", "detail": str(e)
             })
 
-    
+    # --- 3. PROCESS SYSTEM FILES (Excel) ---
     for full_path, filename, file_type, pan in classified:
         if file_type == "transactions":
             try:
                 upload_date = extract_date_from_filename(filename)
                 rows        = parse_transactions(full_path, upload_date)
+                
+                # =====================================================================
+                # 🚨 FIX 1: TRANSACTIONS DEDUPLICATION
+                # =====================================================================
+                pan_dates = defaultdict(list)
+                for row in rows:
+                    if row.get('pan') and row.get('transaction_date'):
+                        pan_dates[row['pan']].append(row['transaction_date'])
+
+                for d_pan, dates in pan_dates.items():
+                    min_date, max_date = min(dates), max(dates)
+                    query(
+                        "DELETE FROM customer_transactions WHERE pan = %s AND transaction_date BETWEEN %s AND %s", 
+                        params=(d_pan, min_date, max_date), 
+                        commit=True
+                    )
+                # =====================================================================
+
                 ins, skp    = insert_transactions(rows, customer_lookup)
+                
                 _, dest_path = make_upload_path(None, "transactions", "xlsx")
-                shutil_copy(full_path, dest_path)
+                os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                shutil.copy2(full_path, dest_path)
+                
                 results["transactions"].append({
                     "filename": filename, "inserted": ins, "skipped": skp,
                     "detail": f"{ins} inserted, {skp} skipped (unmatched PAN)"
                 })
             except Exception as e:
                 results["transactions"].append({
-                    "filename": filename, "inserted": 0, "skipped": 0,
-                    "detail": f"Error: {e}"
+                    "filename": filename, "inserted": 0, "skipped": 0, "detail": f"Error: {e}"
                 })
 
         elif file_type == "portfolio":
             try:
                 snapshot_date = extract_date_from_filename(filename)
                 rows          = parse_portfolio(full_path, snapshot_date)
+                
+                # =====================================================================
+                # 🚨 FIX 1: PORTFOLIO DEDUPLICATION
+                # =====================================================================
+                pan_dates = defaultdict(list)
+                for row in rows:
+                    if row.get('pan') and row.get('snapshot_date'):
+                        pan_dates[row['pan']].append(row['snapshot_date'])
+
+                for d_pan, dates in pan_dates.items():
+                    for s_date in set(dates):
+                        query("DELETE FROM customer_portfolio_snapshots WHERE pan = %s AND snapshot_date = %s", params=(d_pan, s_date), commit=True)
+                        query("DELETE FROM portfolio_values WHERE pan = %s AND snapshot_date = %s", params=(d_pan, s_date), commit=True)
+                # =====================================================================
+
                 ins, skp      = insert_portfolio_snapshots(rows, customer_lookup)
+                
                 _, dest_path  = make_upload_path(None, "portfolio", "xlsx")
-                shutil_copy(full_path, dest_path)
+                os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                shutil.copy2(full_path, dest_path)
+                
                 results["portfolio"].append({
                     "filename": filename, "inserted": ins, "skipped": skp,
                     "detail": f"{ins} inserted, {skp} skipped (unmatched PAN)"
                 })
             except Exception as e:
                 results["portfolio"].append({
-                    "filename": filename, "inserted": 0, "skipped": 0,
-                    "detail": f"Error: {e}"
+                    "filename": filename, "inserted": 0, "skipped": 0, "detail": f"Error: {e}"
                 })
 
         elif file_type == "asset_allocation":
             try:
                 snapshot_date = extract_date_from_filename(filename)
                 aa_result     = parse_asset_allocation(full_path, snapshot_date)
-                ins, skp      = insert_asset_allocation_snapshots(
-                                    aa_result["rows"], customer_lookup)
+                
+                # =====================================================================
+                # 🚨 FIX 1: ASSET ALLOCATION DEDUPLICATION
+                # =====================================================================
+                pan_dates = defaultdict(list)
+                for row in aa_result.get("rows", []):
+                    if row.get('pan') and row.get('snapshot_date'):
+                        pan_dates[row['pan']].append(row['snapshot_date'])
+
+                for d_pan, dates in pan_dates.items():
+                    for s_date in set(dates):
+                        query("DELETE FROM asset_allocation WHERE pan = %s AND snapshot_date = %s", params=(d_pan, s_date), commit=True)
+                        query("DELETE FROM customer_asset_allocation_snapshots WHERE pan = %s AND snapshot_date = %s", params=(d_pan, s_date), commit=True)
+                # =====================================================================
+
+                ins, skp      = insert_asset_allocation_snapshots(aa_result["rows"], customer_lookup)
+                
                 _, dest_path  = make_upload_path(None, "asset_allocation", "xlsx")
-                shutil_copy(full_path, dest_path)
+                os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                shutil.copy2(full_path, dest_path)
+                
                 results["asset_allocation"].append({
                     "filename": filename, "inserted": ins, "skipped": skp,
-                    "detail": f"{ins} inserted, {skp} skipped (unmatched PAN), "
-                              f"format={aa_result['format']}"
+                    "detail": f"{ins} inserted, {skp} skipped (unmatched PAN), format={aa_result['format']}"
                 })
             except Exception as e:
                 results["asset_allocation"].append({
-                    "filename": filename, "inserted": 0, "skipped": 0,
-                    "detail": f"Error: {e}"
+                    "filename": filename, "inserted": 0, "skipped": 0, "detail": f"Error: {e}"
                 })
 
     return results
-
 
 def shutil_copy(src, dst):
     """Small wrapper so admin_service doesn't need a top-level shutil import clash."""
@@ -819,4 +877,92 @@ def classify_file(filename):
     from app.utils import classify_file as shared_classify_file
     return shared_classify_file(filename)
     
+def calculate_file_hash(filepath):
+    """Generates a SHA-256 hash of the entire file."""
+    sha256_hash = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        # Read in chunks to handle large files efficiently
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+    return sha256_hash.hexdigest()
+
+def generate_txn_hash(customer_id, txn_date, amount):
+    """Generates a unique hash for a specific transaction row."""
+    # Combine core identifying fields into a unique string
+    raw_string = f"{customer_id}|{txn_date}|{float(amount)}"
+    return hashlib.sha256(raw_string.encode('utf-8')).hexdigest()
     
+def process_transactions_upload(filepath, original_filename, customer_id):
+    from app.database import query, get_db_connection
+    
+    file_hash = calculate_file_hash(filepath)
+    
+    # 1. GATEKEEPER: Check if file was already uploaded
+    existing_upload = query(
+        "SELECT id FROM file_uploads WHERE customer_id = %s AND file_type = 'transactions' AND file_hash = %s",
+        params=(customer_id, file_hash)
+    )
+    if existing_upload:
+        # Delete the redundant file from the server immediately
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        return {"status": "error", "message": "This file has already been uploaded and processed."}
+
+    # 2. Record the upload attempt
+    query(
+        "INSERT INTO file_uploads (customer_id, file_type, original_filename, file_hash, status) VALUES (%s, %s, %s, %s, 'processing')",
+        params=(customer_id, 'transactions', original_filename, file_hash),
+        commit=True
+    )
+    
+    try:
+        # [YOUR EXISTING EXCEL/JSON PARSING LOGIC GOES HERE to generate `rows`]
+        # For example: rows = parse_transactions_file(filepath)
+        from app.parsers.parse_transactions import parse_transactions_file
+        rows = parse_transactions_file(filepath)
+        inserted_count = 0
+        skipped_count = 0
+        
+        # 3. Insert rows safely
+        for row in rows:
+            txn_date = row.get("transaction_date")
+            amount = row.get("total_amount")
+            
+            # Generate the unique row-level hash
+            txn_hash = generate_txn_hash(customer_id, txn_date, amount)
+            
+            # INSERT IGNORE completely bypasses the error if the txn_hash already exists
+            result = query(
+                """
+                INSERT IGNORE INTO customer_transactions (
+                    customer_id, transaction_date, total_amount, transaction_hash
+                ) VALUES (%s, %s, %s, %s)
+                """,
+                params=(customer_id, txn_date, amount, txn_hash),
+                commit=True 
+            )
+            
+            # If rowAffected is 0, it means INSERT IGNORE skipped it (duplicate)
+            if result and result.rowcount > 0:
+                inserted_count += 1
+            else:
+                skipped_count += 1
+
+        # 4. Mark Batch as Success
+        query(
+            "UPDATE file_uploads SET status = 'success', row_count = %s, processed_at = NOW() WHERE file_hash = %s",
+            params=(inserted_count, file_hash),
+            commit=True
+        )
+        
+        return {"status": "success", "message": f"Success: {inserted_count} new inserted, {skipped_count} duplicates skipped."}
+
+    except Exception as e:
+        # 5. Mark Batch as Failed
+        print(f"Upload Error: {e}")
+        query(
+            "UPDATE file_uploads SET status = 'failed', error_message = %s WHERE file_hash = %s",
+            params=(str(e), file_hash),
+            commit=True
+        )
+        return {"status": "error", "message": "Failed to process file."}

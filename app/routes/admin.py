@@ -7,6 +7,8 @@ from functools import wraps
 from flask import (Blueprint, render_template, request,
                    redirect, url_for, flash, session)
 import tempfile
+from app.services.dashboard_service import get_networth_statement
+from flask import send_file 
 
 # Utils & Services
 from app.utils import (
@@ -348,11 +350,22 @@ def customer_dashboard(customer_id):
             customer_id=customer_id,
         )
 
+    # --- THE FIX STARTS HERE ---
+    # 1. Fetch the data using our new service
+    networth_data = get_networth_statement(customer_id)
+    
+    # 2. Structure the specific dictionary the dashboard.html template expects
+    vasupradah_summary = {
+        "net_invested": networth_data.get("vasupradah_managed_assets", 0)
+    }
+    # --- THE FIX ENDS HERE ---
+
     return render_template(
         "customer/dashboard.html",
         is_admin_view=True,
         customer=customer,
         customer_id=customer_id,
+        vasupradah_summary=vasupradah_summary,  # <-- Pass it to Jinja here
         **data
     )
 
@@ -360,17 +373,37 @@ def customer_dashboard(customer_id):
 @admin_required
 def customer_tracking(customer_id):
     customer = get_customer_by_id(customer_id)
-    tracking_data = get_tracking_data(customer_id)
     
-    if not tracking_data:
-        flash("No active plan data to track.", "warning")
-        return redirect(url_for("admin.customer_dashboard", customer_id=customer_id))
-        
+    # 1. Ask the DB exactly where the JSON file is stored
+    plan_record = query(
+        "SELECT file_path FROM financial_plans WHERE customer_id = %s AND is_current = 1", 
+        params=(customer_id,), 
+        fetchone=True
+    )
+    
+    filepath = plan_record.get("file_path") if plan_record else None
+
+    # 2. Safety check: Does the file exist physically?
+    import os
+    if not filepath or not os.path.exists(filepath):
+        # Graceful fallback to the empty state UI
+        return render_template("customer/tracking.html", has_plan=False, is_admin_view=True, customer=customer)
+
+    # 3. If the file exists, run the math!
+    from app.services.tracking_service import calculate_investment_deviation, calculate_allocation_deviation, calculate_portfolio_deviation
+    
+    investment_data = calculate_investment_deviation(customer_id, filepath)
+    allocation_data = calculate_allocation_deviation(customer_id, filepath)
+    portfolio_data = calculate_portfolio_deviation(customer_id, filepath)
+
     return render_template(
         "customer/tracking.html", 
         customer=customer, 
         is_admin_view=True,
-        **tracking_data
+        has_plan=True,
+        investment=investment_data,
+        allocations=allocation_data,
+        portfolio=portfolio_data
     )
 
 @admin_bp.route("/customer/<int:customer_id>/my-plan")
@@ -380,3 +413,25 @@ def customer_my_plan(customer_id):
     plan = query("SELECT file_path, html_file_path FROM financial_plans WHERE customer_id = %s AND is_current = 1", params=(customer_id,), fetchone=True)
     
     return render_template("customer/my_plan.html", customer=customer, plan=plan, is_admin_view=True)
+
+@admin_bp.route("/customer/<int:customer_id>/serve-report")
+@admin_required
+def serve_html_report(customer_id):
+    """Securely serve the uploaded HTML report so the browser doesn't block it."""
+    plan = query(
+        "SELECT html_file_path FROM financial_plans WHERE customer_id = %s AND is_current = 1", 
+        params=(customer_id,), 
+        fetchone=True
+    )
+    
+    if not plan or not plan.get("html_file_path"):
+        return "No HTML report attached to this plan.", 404
+        
+    filepath = plan["html_file_path"]
+    
+    import os
+    if os.path.exists(filepath):
+        # send_file safely transmits the local file to the web browser
+        return send_file(filepath, mimetype='text/html')
+    else:
+        return "File path found in database, but physical file is missing.", 404

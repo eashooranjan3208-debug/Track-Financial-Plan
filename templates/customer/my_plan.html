@@ -19,8 +19,9 @@
 
 <div class="vp-card" style="height: 75vh; overflow: hidden;">
   {% if plan and (plan.html_file_path or plan.file_path) %}
-    <iframe src="{{ url_for('customer.view_plan', plan_id=plan.id) }}" 
-            style="width: 100%; height: 100%; border: none;">
+    <iframe 
+    src="{{ url_for('customer.serve_html_report', customer_id=customer.id) }}" 
+    style="width: 100%; height: 800px; border: none;">
     </iframe>
   {% else %}
     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background-color: var(--vp-bg); color: var(--vp-text-muted);">

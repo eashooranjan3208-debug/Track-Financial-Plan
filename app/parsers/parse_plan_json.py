@@ -146,8 +146,13 @@ def _goals(d):
         df[col] = df[col].astype(int)
         
     # Ensure text columns exist
+    # Ensure text columns exist and fit within strict database limits
     for col in ["goal_type", "criticality", "status_text"]:
-        if col not in df.columns: df[col] = None
+        if col not in df.columns: 
+            df[col] = None
+        else:
+            # Safely truncate to 10 characters to absolutely guarantee it fits
+            df[col] = df[col].astype(str).str.slice(0, 10)
 
     # Deduplicate keeping the first occurrence, sort by year
     df = df.drop_duplicates(subset=["goal_name", "goal_year"]).sort_values(by="goal_year")
@@ -224,17 +229,18 @@ def _other_assets(d):
     df = pd.DataFrame(raw)
     if df.empty: return []
 
+    # 1. FIX: Mapped to 'maturity_date' to match the database exactly
     df = df.rename(columns={
         "name": "asset_name",
-        "date_maturity": "maturity_year",
-        "maturity_amt": "maturity_value"
+        "date_maturity": "maturity_date", 
+        "maturity_amt": "maturity_value",
+        "asset_class": "asset_type"
     })
     
     df["maturity_value"] = pd.to_numeric(
         df.get("maturity_value", pd.Series()).astype(str).str.replace(',', '', regex=False),
         errors="coerce"
     ).fillna(0.0)
-    df["maturity_year"] = pd.to_numeric(df.get("maturity_year", pd.Series()), errors="coerce").fillna(0).astype(int)
     
     for col in ["asset_type", "notes"]:
         if col not in df.columns: df[col] = None
@@ -242,17 +248,62 @@ def _other_assets(d):
     df["current_value"] = 0.0
     df["annual_contribution"] = 0.0
 
-    return df[["asset_name", "asset_type", "current_value", "maturity_value", 
-               "annual_contribution", "maturity_year", "notes"]].replace({pd.NA: None, float('nan'): None}).to_dict(orient="records")
+    # ── COMPRESSOR ENGINE FOR RENTAL INCOME ──
+    is_rental = df["asset_type"].str.lower() == "rental"
+    final_rows = []
+    
+    if is_rental.any():
+        rental_df = df[is_rental]
+        
+        # Calculate the summary math
+        total_value = rental_df["maturity_value"].sum()
+        
+        # Safely extract years to build our label
+        years = pd.to_numeric(rental_df["maturity_date"], errors="coerce").dropna().astype(int)
+        start_year = years.min() if not years.empty else "Unknown"
+        end_year = years.max() if not years.empty else "Unknown"
+        
+        # Create the single, elegant summary row
+        final_rows.append({
+            "asset_name": f"Projected Rental Income ({start_year} - {end_year})",
+            "asset_type": "Real Estate",
+            "current_value": 0.0,
+            "maturity_value": float(total_value),
+            "annual_contribution": 0.0,
+            # 2. FIX: Format as YYYY-MM-DD so MySQL 'date' column accepts it unconditionally
+            "maturity_date": f"{end_year}-12-31" if end_year != "Unknown" else None, 
+            "notes": None
+        })
+        
+    # Format the normal assets (FD, LIC, etc.) so their dates don't crash MySQL either
+    normal_df = df[~is_rental].copy()
+    if not normal_df.empty:
+        # Convert raw years like '2026' into '2026-01-01'
+        def format_date(y):
+            try:
+                return f"{int(y)}-01-01"
+            except:
+                return None
+        normal_df["maturity_date"] = normal_df["maturity_date"].apply(format_date)
+        
+        normal_assets = normal_df.replace({pd.NA: None, float('nan'): None}).to_dict(orient="records")
+        final_rows.extend(normal_assets)
+
+    return final_rows
 
 # ── Helpers ────────────────────────────────────────────────────
 
 def _df(raw):
-    """Parse a JSON-encoded DataFrame string into a plain dict."""
-    if isinstance(raw, dict): return raw
-    if not isinstance(raw, str): return None
-    try: return json.loads(raw)
-    except (json.JSONDecodeError, TypeError): return None
+    """Parse a JSON-encoded DataFrame string or a native list into a dict/list."""
+    # FIX: We added 'list' here so it accepts native JSON arrays!
+    if isinstance(raw, (dict, list)): 
+        return raw
+    if not isinstance(raw, str): 
+        return None
+    try: 
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError): 
+        return None
 
 def _parse_date(raw):
     fmts = ["%d/%m/%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%d/%m/%Y"]
