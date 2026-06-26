@@ -38,7 +38,8 @@
 
 <div class="row g-4">
 <div class="col-lg-8">
-  <form method="POST" enctype="multipart/form-data" id="bulk-form">
+  <form method="POST" action="{{ url_for('admin.bulk_upload') }}" enctype="multipart/form-data" id="bulk-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     <div class="zip-zone" id="zip-zone" onclick="document.getElementById('bulk_zip').click()">
       <i class="bi bi-file-earmark-zip"></i>
       <div style="font-weight:700; font-size:1.05rem; margin-top:0.75rem;">
@@ -49,7 +50,7 @@
         transactions / portfolio / asset_allocation Excel files (system-wide)
       </div>
       <div class="file-name" id="zip-name"></div>
-      <input type="file" name="folder_files" webkitdirectory directory multiple required>
+      <input type="file" id="bulk_zip" name="bulk_zip" accept=".zip,application/zip" required>
     </div>
 
     <button type="submit" class="btn-vp-yellow btn-vp-login mt-3"

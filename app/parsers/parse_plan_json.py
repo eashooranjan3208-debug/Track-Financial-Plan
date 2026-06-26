@@ -311,3 +311,5 @@ def _parse_date(raw):
         try: return datetime.strptime(str(raw).strip(), fmt).date()
         except ValueError: continue
     raise ValueError(f"Cannot parse date: {raw!r}")
+
+

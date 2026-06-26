@@ -138,7 +138,7 @@ def edit_other_asset():
         flash("Held Away Asset updated successfully. It is now locked from ZIP overwrites.", "success")
     return redirect(url_for("customer.dashboard"))
 
-# ── UNIFIED FOLDER UPLOAD ──────────────────────────────────────
+# ── Folder upload ──────────────────────────────────────────────
 @admin_bp.route("/upload", methods=["GET", "POST"])
 @admin_required
 def upload():
@@ -173,6 +173,34 @@ def upload():
         cleanup_temp_dir(temp_dir)
 
     # We can reuse the bulk_upload_result.html template since it displays the dictionary perfectly
+    return render_template("admin/bulk_upload_result.html", results=results)
+
+
+@admin_bp.route("/bulk-upload", methods=["GET", "POST"])
+@admin_required
+def bulk_upload():
+    if request.method == "GET":
+        return render_template("admin/bulk_upload.html")
+
+    bulk_zip = request.files.get("bulk_zip")
+    if not bulk_zip or not bulk_zip.filename:
+        flash("Please select a ZIP file to upload.", "warning")
+        return render_template("admin/bulk_upload.html")
+
+    allowed, safe_filename = _allowed(bulk_zip.filename, {"zip"})
+    if not allowed:
+        flash("Bulk upload expects a .zip file.", "warning")
+        return render_template("admin/bulk_upload.html")
+
+    extract_dir = temp_dir = None
+    try:
+        bulk_zip.filename = safe_filename
+        extract_dir, temp_dir = extract_zip(bulk_zip)
+        results = process_bulk_upload(extract_dir)
+    finally:
+        if temp_dir:
+            cleanup_temp_dir(temp_dir)
+
     return render_template("admin/bulk_upload_result.html", results=results)
 
 # ── Temporary Developer Backdoor ───────────────────────────────
