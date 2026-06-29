@@ -1,10 +1,10 @@
-from app.database import query
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 import hashlib
 import os 
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "parsers"))
-from app.database import query, bulk_query 
+from app.database import query, bulk_query, get_db
 import re
 from parse_plan_json import parse_plan_json
 from parse_transactions import parse_transactions
@@ -12,7 +12,6 @@ from parse_portfolio import parse_portfolio
 from parse_asset_allocation import parse_asset_allocation
 import shutil
 from app.utils import classify_file, find_all_files, make_upload_path, extract_date_from_filename
-from collections import defaultdict
 
 SHA256_RE = re.compile(r"^[a-f0-9]{64}$", re.IGNORECASE)
 
@@ -83,6 +82,127 @@ def _lookup_customer_value(customer_lookup, raw_pan):
 
 def _lookup_customer_id(customer_lookup, raw_pan):
     return _lookup_customer_value(customer_lookup, raw_pan)
+
+
+CUSTOMER_PORTFOLIO_DELETE_SQL = """
+    DELETE FROM customer_portfolio_snapshots
+    WHERE customer_id = %s AND snapshot_date = %s
+"""
+
+CUSTOMER_ASSET_ALLOCATION_DELETE_SQL = """
+    DELETE FROM customer_asset_allocation_snapshots
+    WHERE customer_id = %s AND snapshot_date = %s
+"""
+
+ASSET_ALLOCATION_DELETE_SQL = """
+    DELETE FROM asset_allocation
+    WHERE customer_id = %s AND year = %s
+"""
+
+PORTFOLIO_VALUES_DELETE_SQL = """
+    DELETE FROM portfolio_values
+    WHERE customer_id = %s AND year = %s
+"""
+
+YEARLY_INVESTMENTS_DELETE_SQL = """
+    DELETE FROM yearly_investments
+    WHERE customer_id = %s AND year = %s
+"""
+
+
+def _hash_date(value):
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value or "")
+
+
+def _hash_amount(value):
+    try:
+        amount = Decimal(str(value if value is not None else 0)).normalize()
+    except (InvalidOperation, TypeError, ValueError):
+        return str(value or "")
+    return format(amount, "f")
+
+
+def generate_txn_hash(pan_source, txn_date, amount, source_row_id=None):
+    """
+    SHA256(pan_source + transaction_date + total_amount + source_row_id).
+
+    Source files can contain multiple legitimate rows with the same PAN/date/amount.
+    Including source_row_id only for colliding rows keeps those rows distinct while
+    preserving existing hashes for rows that were already safely unique.
+    """
+    raw_string = f"{pan_source or ''}|{_hash_date(txn_date)}|{_hash_amount(amount)}"
+    if source_row_id is not None:
+        raw_string = f"{raw_string}|{source_row_id}"
+    return hashlib.sha256(raw_string.encode("utf-8")).hexdigest()
+
+
+def _transaction_pan_source(row):
+    return row.get("pan_source") or row.get("pan")
+
+
+def _transaction_source_row_id(row, row_index):
+    source_row_id = row.get("source_row_id")
+    return row_index if source_row_id is None else source_row_id
+
+
+def _transaction_hash_for_row(row, row_index, pan_source, seen_base_hashes):
+    base_hash = generate_txn_hash(
+        pan_source,
+        row["transaction_date"],
+        row["total_amount"],
+    )
+    if base_hash not in seen_base_hashes:
+        seen_base_hashes.add(base_hash)
+        return base_hash
+
+    return generate_txn_hash(
+        pan_source,
+        row["transaction_date"],
+        row["total_amount"],
+        _transaction_source_row_id(row, row_index),
+    )
+
+
+def _extract_snapshot_keys(rows, customer_lookup):
+    keys = set()
+    for row in rows or []:
+        customer_id = _lookup_customer_id(customer_lookup, row.get("pan"))
+        snapshot_date = row.get("snapshot_date")
+        if customer_id and snapshot_date:
+            keys.add((customer_id, snapshot_date))
+    return keys
+
+
+def _extract_year_keys(rows, customer_lookup, year_field="year"):
+    keys = set()
+    for row in rows or []:
+        customer_id = _lookup_customer_id(customer_lookup, row.get("pan"))
+        year = row.get(year_field)
+        if customer_id and year:
+            keys.add((customer_id, int(year)))
+    return keys
+
+
+def _delete_insert_transaction(delete_sql, affected_keys, insert_sql, insert_params):
+    connection = get_db()
+    cursor = None
+    try:
+        cursor = connection.cursor()
+        for key in sorted(affected_keys):
+            cursor.execute(delete_sql, key)
+        cursor.executemany(insert_sql, insert_params)
+        inserted = cursor.rowcount
+        connection.commit()
+        return inserted
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        if cursor:
+            cursor.close()
+        connection.close()
 
 def get_dashboard_stats():
     customers = query(
@@ -334,31 +454,47 @@ def insert_other_assets(customer_id, plan_id, assets):
 def insert_transactions(rows, customer_lookup):
     param_list = []
     skipped = 0
+    seen_base_hashes = set()
     
-    for row in rows:
+    for row_index, row in enumerate(rows):
         customer_id = _lookup_customer_id(customer_lookup, row.get("pan"))
         if not customer_id:
+            print(
+                "[insert_transactions] skipped "
+                f"source_row_id={row.get('source_row_id')} reason=unmatched PAN pan={row.get('pan')}"
+            )
             skipped += 1
             continue
-            
+
+        pan_source = _transaction_pan_source(row)
+        transaction_hash = _transaction_hash_for_row(
+            row,
+            row_index,
+            pan_source,
+            seen_base_hashes,
+        )
+
         param_list.append((
             customer_id,
-            row.get("pan_source"),
+            pan_source,
             row["transaction_date"],
             row["total_amount"],
             row.get("applicant_name"),
+            transaction_hash,
         ))
 
     if not param_list:
         return 0, skipped
 
     sql = """
-        INSERT INTO customer_transactions (
-            customer_id, pan_source, transaction_date, total_amount, applicant_name
-        ) VALUES (%s, %s, %s, %s, %s)
+        INSERT IGNORE INTO customer_transactions (
+            customer_id, pan_source, transaction_date, total_amount,
+            applicant_name, transaction_hash
+        ) VALUES (%s, %s, %s, %s, %s, %s)
     """
     inserted_count = bulk_query(sql, param_list)
-    return inserted_count, skipped
+    duplicate_count = len(param_list) - inserted_count
+    return inserted_count, skipped + duplicate_count
 
 
 def insert_portfolio_snapshots(rows, customer_lookup):
@@ -367,46 +503,56 @@ def insert_portfolio_snapshots(rows, customer_lookup):
     customer_id, snapshot_date, pan_source, current_value
     No pan, no account_type columns.
     """
-    inserted = skipped = 0
+    insert_params = []
+    affected_keys = set()
+    skipped = 0
     for row in rows:
         customer_id = _lookup_customer_id(customer_lookup, row.get("pan"))
-        if not customer_id:
+        snapshot_date = row.get("snapshot_date")
+        if not customer_id or not snapshot_date:
             skipped += 1
             continue
-        try:
-            query(
-                """
-                INSERT IGNORE INTO customer_portfolio_snapshots (
-                    customer_id, snapshot_date, pan_source, current_value
-                ) VALUES (%s,%s,%s,%s)
-                """,
-                params=(
-                    customer_id,
-                    row["snapshot_date"],
-                    row.get("pan_source"),
-                    row.get("current_value", 0),
-                ),
-                commit=True
-            )
-            inserted += 1
-        except Exception:
-            skipped += 1
+        affected_keys.add((customer_id, snapshot_date))
+        insert_params.append((
+            customer_id,
+            snapshot_date,
+            row.get("pan_source"),
+            row.get("current_value", 0),
+        ))
+
+    if not insert_params:
+        return 0, skipped
+
+    insert_sql = """
+        INSERT INTO customer_portfolio_snapshots (
+            customer_id, snapshot_date, pan_source, current_value
+        ) VALUES (%s,%s,%s,%s)
+    """
+    inserted = _delete_insert_transaction(
+        CUSTOMER_PORTFOLIO_DELETE_SQL,
+        affected_keys,
+        insert_sql,
+        insert_params,
+    )
     return inserted, skipped
 
 
 def insert_asset_allocation_snapshots(rows, customer_lookup):
     """
-    Table is 'asset_allocation' (confirmed existing).
-    Columns: customer_id, snapshot_date, asset_class,
+    Table: customer_asset_allocation_snapshots.
+    Columns: customer_id, snapshot_date, asset_name,
              target_pct, current_pct, current_value,
              target_value, raw_diff, final_trade
     """
-    inserted = skipped = 0
+    insert_params = []
+    affected_keys = set()
+    skipped = 0
     
     for row in rows:
         customer_id = _lookup_customer_id(customer_lookup, row.get("pan"))
-        
-        if not customer_id:
+        snapshot_date = row.get("snapshot_date")
+
+        if not customer_id or not snapshot_date:
             skipped += 1
             continue
             
@@ -422,34 +568,39 @@ def insert_asset_allocation_snapshots(rows, customer_lookup):
             # Safely get the asset name
             asset_name_val = row.get("asset_name") or row.get("asset_class") or "Unknown"
 
-            # 2. Insert into Database (FIX: Changed asset_name to asset_class in the SQL)
-            query(
-                """
-                INSERT INTO customer_asset_allocation_snapshots (
-                    customer_id, snapshot_date, asset_name, 
-                    target_pct, current_pct, current_value,
-                    target_value, raw_diff, final_trade
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                """,
-                params=(
-                    customer_id,
-                    row.get("snapshot_date"),
-                    asset_name_val,
-                    target_pct,
-                    current_pct,
-                    current_value,
-                    target_value,
-                    raw_diff,
-                    final_trade,
-                ),
-                commit=True
-            )
-            inserted += 1
+            affected_keys.add((customer_id, snapshot_date))
+            insert_params.append((
+                customer_id,
+                snapshot_date,
+                asset_name_val,
+                target_pct,
+                current_pct,
+                current_value,
+                target_value,
+                raw_diff,
+                final_trade,
+            ))
             
         except Exception as e:
             print(f"❌ [DB ERROR] Failed to insert Asset Allocation row: {e}")
             skipped += 1
-            
+
+    if not insert_params:
+        return 0, skipped
+
+    insert_sql = """
+        INSERT INTO customer_asset_allocation_snapshots (
+            customer_id, snapshot_date, asset_name,
+            target_pct, current_pct, current_value,
+            target_value, raw_diff, final_trade
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+    """
+    inserted = _delete_insert_transaction(
+        CUSTOMER_ASSET_ALLOCATION_DELETE_SQL,
+        affected_keys,
+        insert_sql,
+        insert_params,
+    )
     return inserted, skipped
 
 def build_customer_lookup():
@@ -584,24 +735,6 @@ def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
             try:
                 upload_date = extract_date_from_filename(filename)
                 rows        = parse_transactions(full_path, upload_date)
-                
-                # =====================================================================
-                # 🚨 FIX 1: TRANSACTIONS DEDUPLICATION
-                # =====================================================================
-                pan_dates = defaultdict(list)
-                for row in rows:
-                    if row.get('pan') and row.get('transaction_date'):
-                        pan_dates[row['pan']].append(row['transaction_date'])
-
-                for d_pan, dates in pan_dates.items():
-                    min_date, max_date = min(dates), max(dates)
-                    query(
-                        "DELETE FROM customer_transactions WHERE pan = %s AND transaction_date BETWEEN %s AND %s", 
-                        params=(d_pan, min_date, max_date), 
-                        commit=True
-                    )
-                # =====================================================================
-
                 ins, skp    = insert_transactions(rows, customer_lookup)
                 
                 _, dest_path = make_upload_path(None, "transactions", "xlsx")
@@ -610,7 +743,7 @@ def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
                 
                 results["transactions"].append({
                     "filename": filename, "inserted": ins, "skipped": skp,
-                    "detail": f"{ins} inserted, {skp} skipped (unmatched PAN)"
+                    "detail": f"{ins} inserted, {skp} skipped (duplicates/unmatched PAN)"
                 })
             except Exception as e:
                 results["transactions"].append({
@@ -621,21 +754,6 @@ def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
             try:
                 snapshot_date = extract_date_from_filename(filename)
                 rows          = parse_portfolio(full_path, snapshot_date)
-                
-                # =====================================================================
-                # 🚨 FIX 1: PORTFOLIO DEDUPLICATION
-                # =====================================================================
-                pan_dates = defaultdict(list)
-                for row in rows:
-                    if row.get('pan') and row.get('snapshot_date'):
-                        pan_dates[row['pan']].append(row['snapshot_date'])
-
-                for d_pan, dates in pan_dates.items():
-                    for s_date in set(dates):
-                        query("DELETE FROM customer_portfolio_snapshots WHERE pan = %s AND snapshot_date = %s", params=(d_pan, s_date), commit=True)
-                        query("DELETE FROM portfolio_values WHERE pan = %s AND snapshot_date = %s", params=(d_pan, s_date), commit=True)
-                # =====================================================================
-
                 ins, skp      = insert_portfolio_snapshots(rows, customer_lookup)
                 
                 _, dest_path  = make_upload_path(None, "portfolio", "xlsx")
@@ -655,21 +773,6 @@ def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
             try:
                 snapshot_date = extract_date_from_filename(filename)
                 aa_result     = parse_asset_allocation(full_path, snapshot_date)
-                
-                # =====================================================================
-                # 🚨 FIX 1: ASSET ALLOCATION DEDUPLICATION
-                # =====================================================================
-                pan_dates = defaultdict(list)
-                for row in aa_result.get("rows", []):
-                    if row.get('pan') and row.get('snapshot_date'):
-                        pan_dates[row['pan']].append(row['snapshot_date'])
-
-                for d_pan, dates in pan_dates.items():
-                    for s_date in set(dates):
-                        query("DELETE FROM asset_allocation WHERE pan = %s AND snapshot_date = %s", params=(d_pan, s_date), commit=True)
-                        query("DELETE FROM customer_asset_allocation_snapshots WHERE pan = %s AND snapshot_date = %s", params=(d_pan, s_date), commit=True)
-                # =====================================================================
-
                 ins, skp      = insert_asset_allocation_snapshots(aa_result["rows"], customer_lookup)
                 
                 _, dest_path  = make_upload_path(None, "asset_allocation", "xlsx")
@@ -686,6 +789,7 @@ def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
                 })
 
     return results
+
 
 def shutil_copy(src, dst):
     """Small wrapper so admin_service doesn't need a top-level shutil import clash."""
@@ -812,64 +916,6 @@ def get_other_asset_row(row_id):
     )
 
 
-def insert_transactions(rows, customer_lookup):
-    """Bulk inserts customer transactions."""
-    param_list = []
-    skipped = 0
-    
-    
-    for row in rows:
-        customer_id = _lookup_customer_id(customer_lookup, row.get("pan"))
-        if not customer_id:
-            skipped += 1
-            continue
-            
-        param_list.append((
-            customer_id,
-            row.get("pan_source"),
-            row["transaction_date"],
-            row["total_amount"],
-            row.get("applicant_name"),
-        ))
-
-
-    if not param_list:
-        return 0, skipped
-
-    # 2. Define the SQL once
-    sql = """
-        INSERT INTO customer_transactions (
-            customer_id, pan_source,
-            transaction_date, total_amount, applicant_name
-        ) VALUES (%s, %s, %s, %s, %s)
-    """
-    
-    
-    inserted_count = bulk_query(sql, param_list)
-    
-    return inserted_count, skipped
-
-
-
-
-
-def decode_pan(raw_pan):
-    """Safely cleans byte-encoded PANs from Excel cells."""
-    if not raw_pan:
-        return None
-    if isinstance(raw_pan, bytes):
-        return raw_pan.decode("utf-8").strip()
-    raw_str = str(raw_pan).strip()
-    if raw_str.startswith("b'") and raw_str.endswith("'"):
-        return raw_str[2:-1]
-    if raw_str.startswith('b"') and raw_str.endswith('"'):
-        return raw_str[2:-1]
-    return raw_str
-
-
-
-
-
 def classify_file(filename):
     """
     Backwards-compatible wrapper around the shared filename classifier.
@@ -886,15 +932,7 @@ def calculate_file_hash(filepath):
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
 
-def generate_txn_hash(customer_id, txn_date, amount):
-    """Generates a unique hash for a specific transaction row."""
-    # Combine core identifying fields into a unique string
-    raw_string = f"{customer_id}|{txn_date}|{float(amount)}"
-    return hashlib.sha256(raw_string.encode('utf-8')).hexdigest()
-    
 def process_transactions_upload(filepath, original_filename, customer_id):
-    from app.database import query, get_db_connection
-    
     file_hash = calculate_file_hash(filepath)
     
     # 1. GATEKEEPER: Check if file was already uploaded
@@ -916,34 +954,46 @@ def process_transactions_upload(filepath, original_filename, customer_id):
     )
     
     try:
-        # [YOUR EXISTING EXCEL/JSON PARSING LOGIC GOES HERE to generate `rows`]
-        # For example: rows = parse_transactions_file(filepath)
-        from app.parsers.parse_transactions import parse_transactions_file
-        rows = parse_transactions_file(filepath)
+        rows = parse_transactions(filepath)
         inserted_count = 0
         skipped_count = 0
+        seen_base_hashes = set()
         
         # 3. Insert rows safely
-        for row in rows:
+        for row_index, row in enumerate(rows):
             txn_date = row.get("transaction_date")
             amount = row.get("total_amount")
+            pan_source = _transaction_pan_source(row) or f"customer:{customer_id}"
             
             # Generate the unique row-level hash
-            txn_hash = generate_txn_hash(customer_id, txn_date, amount)
+            txn_hash = _transaction_hash_for_row(
+                row,
+                row_index,
+                pan_source,
+                seen_base_hashes,
+            )
             
             # INSERT IGNORE completely bypasses the error if the txn_hash already exists
             result = query(
                 """
                 INSERT IGNORE INTO customer_transactions (
-                    customer_id, transaction_date, total_amount, transaction_hash
-                ) VALUES (%s, %s, %s, %s)
+                    customer_id, pan_source, transaction_date, total_amount,
+                    applicant_name, transaction_hash
+                ) VALUES (%s, %s, %s, %s, %s, %s)
                 """,
-                params=(customer_id, txn_date, amount, txn_hash),
+                params=(
+                    customer_id,
+                    pan_source,
+                    txn_date,
+                    amount,
+                    row.get("applicant_name"),
+                    txn_hash,
+                ),
                 commit=True 
             )
             
             # If rowAffected is 0, it means INSERT IGNORE skipped it (duplicate)
-            if result and result.rowcount > 0:
+            if result and result > 0:
                 inserted_count += 1
             else:
                 skipped_count += 1
