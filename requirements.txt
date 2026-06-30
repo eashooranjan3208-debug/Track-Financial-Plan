@@ -1,0 +1,8 @@
+flask
+flask-wtf
+python-dotenv
+mysql-connector-python
+pandas
+numpy
+openpyxl
+werkzeug
