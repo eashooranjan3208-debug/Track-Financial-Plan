@@ -3,6 +3,7 @@ from datetime import date
 import os
 import hashlib
 from flask import current_app
+from decimal import Decimal
 
 
 # ── Plan retrieval ─────────────────────────────────────────────
@@ -715,3 +716,101 @@ def get_customer_json_filepath(raw_pan):
     
     # Return the absolute path to the file
     return os.path.join(storage_dir, filename)
+
+
+
+def _money(value):
+    if value is None:
+        return Decimal("0.00")
+    try:
+        return Decimal(str(value)).quantize(Decimal("0.01"))
+    except Exception:
+        return Decimal("0.00")
+
+
+def _share(part, total):
+    part = _money(part)
+    total = _money(total)
+
+    if total == 0:
+        return Decimal("0.00")
+
+    return ((part / total) * Decimal("100")).quantize(Decimal("0.01"))
+
+
+def get_networth_statement_data(customer_id, plan_id):
+    """
+    Build Networth Statement shown above Goal Tracking.
+
+    Sources:
+    1. Investments with Vasupradah:
+       latest asset allocation Excel import.
+    2. Other Heldaway Assets:
+       JSON dfcurrent_assets imported into plan_current_assets.
+    3. Other Assets / Non-Liquid:
+       JSON dfheldaway imported into other_assets.
+
+    Each section returns only top 3 asset classes by value.
+    """
+
+    vasupradah_rows = query(
+        """
+        SELECT asset_name AS asset_class,
+               COALESCE(SUM(current_value), 0) AS total_value
+        FROM customer_asset_allocation_snapshots
+        WHERE customer_id = %s
+          AND snapshot_date = (
+              SELECT MAX(snapshot_date)
+              FROM customer_asset_allocation_snapshots
+              WHERE customer_id = %s
+          )
+        GROUP BY asset_name
+        ORDER BY total_value DESC
+        """,
+        params=(customer_id, customer_id),
+    ) or []
+
+    heldaway_rows = query(
+        """
+        SELECT asset_class,
+               COALESCE(SUM(current_value), 0) AS total_value
+        FROM plan_current_assets
+        WHERE plan_id = %s
+        GROUP BY asset_class
+        ORDER BY total_value DESC
+        """,
+        params=(plan_id,),
+    ) or []
+
+    non_liquid_rows = query(
+        """
+        SELECT asset_type AS asset_class,
+               MIN(maturity_date) AS maturity_date,
+               COALESCE(SUM(maturity_value), 0) AS total_value
+        FROM other_assets
+        WHERE customer_id = %s
+        GROUP BY asset_type
+        ORDER BY total_value DESC
+        LIMIT 3
+        """,
+        params=(customer_id,),
+    ) or []
+
+    vasupradah_total = sum((_money(r.get("total_value")) for r in vasupradah_rows), Decimal("0.00"))
+    heldaway_total = sum((_money(r.get("total_value")) for r in heldaway_rows), Decimal("0.00"))
+    non_liquid_total = sum((_money(r.get("total_value")) for r in non_liquid_rows), Decimal("0.00"))
+
+    grand_total = vasupradah_total + heldaway_total + non_liquid_total
+
+    return {
+        "vasupradah_rows": vasupradah_rows,
+        "heldaway_rows": heldaway_rows,
+        "non_liquid_rows": non_liquid_rows,
+        "vasupradah_total": vasupradah_total,
+        "heldaway_total": heldaway_total,
+        "non_liquid_total": non_liquid_total,
+        "grand_total": grand_total,
+        "vasupradah_share": _share(vasupradah_total, grand_total),
+        "heldaway_share": _share(heldaway_total, grand_total),
+        "non_liquid_share": _share(non_liquid_total, grand_total),
+    }

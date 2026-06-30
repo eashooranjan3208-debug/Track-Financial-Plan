@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Login — Track & Act{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5">
+    <div class="vp-card vp-card-accent">
+      <div class="vp-card-header">
+        <h5 class="vp-card-title">
+          <i class="bi bi-shield-lock-fill"></i> Login
+        </h5>
+      </div>
+
+      <div class="vp-card-body">
+        <form method="POST" action="{{ url_for('auth.login') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+          <div class="vp-form-group">
+            <label class="vp-label" for="email">Registered Email</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              class="vp-input"
+              placeholder="Enter your registered email"
+              required
+              autofocus
+            >
+          </div>
+
+          <button type="submit" class="btn-vp-yellow w-100 justify-content-center">
+            <i class="bi bi-send-fill"></i> Send OTP
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

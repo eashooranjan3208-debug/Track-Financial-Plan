@@ -1,0 +1,51 @@
+ {% extends "base.html" %}
+
+{% block title %}Verify OTP — Track & Act{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5">
+    <div class="vp-card vp-card-accent-yellow">
+      <div class="vp-card-header">
+        <h5 class="vp-card-title">
+          <i class="bi bi-key-fill"></i> Verify OTP
+        </h5>
+      </div>
+
+      <div class="vp-card-body">
+        <p class="text-vp-muted mb-3">
+          Enter the OTP sent to <strong>{{ email }}</strong>.
+        </p>
+
+        <form method="POST" action="{{ url_for('auth.verify') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+          <div class="vp-form-group">
+            <label class="vp-label" for="otp_code">OTP Code</label>
+            <input
+              type="text"
+              id="otp_code"
+              name="otp_code"
+              class="vp-input"
+              placeholder="Enter 6-digit OTP"
+              maxlength="6"
+              required
+              autofocus
+            >
+          </div>
+
+          <button type="submit" class="btn-vp-yellow w-100 justify-content-center">
+            <i class="bi bi-check-circle-fill"></i> Verify & Login
+          </button>
+        </form>
+
+        <div class="text-center mt-3">
+          <a href="{{ url_for('auth.login') }}" class="text-vp-muted">
+            Use another email
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -8,7 +8,9 @@
     background: var(--vp-blue); border-radius: var(--radius);
     padding: 1rem 1.5rem; display: flex; align-items: center;
     justify-content: space-between; flex-wrap: wrap; gap: 1rem;
-    margin-bottom: 1.5rem;
+    margin: 0 auto 1.25rem;
+    max-width: 1180px;
+
   }
   .cycle-label { font-size:.72rem; font-weight:600; color:rgba(255,255,255,.55);
     text-transform:uppercase; letter-spacing:.1em; margin-bottom:.2rem; }
@@ -47,6 +49,225 @@
   .alloc-bar-wrap { height:8px; background:var(--vp-border);
     border-radius:4px; overflow:hidden; }
   .alloc-bar { height:100%; border-radius:4px; }
+  /* ── Networth Statement Clean Layout ───────────────────────── */
+
+.networth-card-wrapper {
+  padding: 1.5rem;
+}
+
+.networth-section-header {
+  border-bottom: 1px solid var(--vp-border);
+  padding-bottom: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.networth-grid {
+  align-items: stretch;
+}
+
+.networth-box {
+  height: 100%;
+  min-height: 430px;
+  padding: 1.35rem;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius);
+}
+
+.networth-box-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-height: 82px;
+  margin-bottom: 1rem;
+}
+
+.networth-dot {
+  width: 10px;
+  height: 10px;
+  min-width: 10px;
+  border-radius: 50%;
+  margin-top: 0.55rem;
+}
+
+.networth-heading {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.networth-list {
+  flex: 1;
+}
+
+.networth-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.55rem 0;
+  color: var(--vp-blue-dark);
+}
+
+.networth-line-label {
+  min-width: 0;
+  font-weight: 500;
+}
+
+.networth-line-value {
+  white-space: nowrap;
+  text-align: right;
+  font-weight: 800;
+  font-family: var(--font-heading);
+}
+
+.networth-muted {
+  font-size: 0.78rem;
+  color: var(--vp-text-muted);
+  margin-top: 0.15rem;
+}
+
+.networth-subtotal {
+  margin-top: auto;
+  padding-top: 1rem;
+}
+
+.networth-total-box {
+  height: 100%;
+  min-height: 430px;
+  background: linear-gradient(135deg, var(--vp-blue), var(--vp-blue-dark));
+  border-radius: var(--radius);
+  padding: 1.35rem;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.networth-total-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  line-height: 1.55;
+}
+
+.networth-total-value {
+  font-family: var(--font-heading);
+  font-size: clamp(1.55rem, 2.2vw, 2.25rem);
+  font-weight: 800;
+  line-height: 1.1;
+  margin: 1.15rem 0;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.networth-total-shares {
+  margin-top: auto;
+}
+
+.networth-share-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.86rem;
+  line-height: 1.7;
+}
+
+.networth-share-line strong {
+  white-space: nowrap;
+}
+
+@media (max-width: 1200px) {
+  .networth-box,
+  .networth-total-box {
+    min-height: auto;
+  }
+}
+/* ── Allocation Rebalancing Boxes ───────────────────────── */
+
+.alloc-rebalancing-card {
+  padding: 1.5rem;
+}
+
+.alloc-rebalancing-header {
+  border-bottom: 1px solid var(--vp-border);
+  padding-bottom: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.alloc-rebalancing-box {
+  height: 100%;
+  padding: 1.25rem;
+}
+
+.alloc-rebalancing-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.alloc-rebalancing-table th {
+  font-size: 0.78rem;
+  color: var(--vp-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.65rem 0.45rem;
+  border-bottom: 1px solid var(--vp-border);
+  white-space: nowrap;
+}
+
+.alloc-rebalancing-table td {
+  padding: 0.75rem 0.45rem;
+  border-bottom: 1px solid var(--vp-border);
+  vertical-align: middle;
+  color: var(--vp-blue-dark);
+  font-weight: 600;
+}
+
+.alloc-rebalancing-table tr:last-child td {
+  border-bottom: none;
+}
+
+.alloc-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.alloc-status-ok {
+  background: var(--vp-success-bg);
+  color: var(--vp-success);
+}
+
+.alloc-status-danger {
+  background: var(--vp-danger-bg);
+  color: var(--vp-danger);
+}
+
+.alloc-dev-positive {
+  color: var(--vp-success);
+}
+
+.alloc-dev-negative {
+  color: var(--vp-danger);
+}
+
+.alloc-policy-box {
+  margin-top: 1.25rem;
+  background: var(--vp-yellow-bg);
+  border: 1px solid var(--vp-yellow);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  color: #7a350d;
+  font-size: 0.9rem;
+}
 </style>
 {% endblock %}
 
@@ -128,56 +349,174 @@
 </div>
 {% endif %}
 
+{% if networth_statement %}
+<div class="vp-card networth-card-wrapper mb-4">
 
-<div class="row g-3 mb-2">
-  <div class="col-6 col-md-3">
-    <div class="vp-stat">
-      <div class="stat-icon" style="background:#E8F8F2;">
-        <i class="bi bi-check-circle-fill" style="color:var(--vp-success);"></i>
-      </div>
-      <div class="stat-label">On Track Goals</div>
-      <div class="stat-value" style="color:var(--vp-success);">{{ goal_summary.on_track }}</div>
-      <div class="stat-sub">of {{ goal_summary.total }} goals</div>
-    </div>
+  <div class="networth-section-header">
+    <h3 style="font-family:var(--font-heading); font-weight:800; color:var(--vp-blue-dark); margin:0;">
+      Networth Statement
+    </h3>
+    <p style="color:var(--vp-text-muted); margin:0.25rem 0 0;">
+      Comprehensive view of your managed portfolios, heldaway assets, and fixed non-liquid wealth
+    </p>
   </div>
-  <div class="col-6 col-md-3">
-    <div class="vp-stat">
-      <div class="stat-icon" style="background:var(--vp-warning-bg);">
-        <i class="bi bi-exclamation-triangle-fill" style="color:var(--vp-warning);"></i>
+
+  <div class="row g-4 networth-grid">
+
+    <!-- Investments with Vasupradah -->
+    <div class="col-xl-3 col-lg-6 col-md-6">
+      <div class="vp-card networth-box" style="background:var(--vp-bg); border-color:var(--vp-border);">
+
+        <div class="networth-box-title">
+          <span class="networth-dot" style="background:var(--vp-blue);"></span>
+          <h5 class="networth-heading" style="color:var(--vp-blue);">
+            Investments with Vasupradah
+          </h5>
+        </div>
+
+        <div class="networth-list">
+          {% for row in networth_statement.vasupradah_rows %}
+          <div class="networth-line">
+            <span class="networth-line-label">{{ row.asset_class or '—' }}</span>
+            <strong class="networth-line-value">
+              ₹{{ "{:,.2f}".format(row.total_value or 0) }}
+            </strong>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="networth-subtotal">
+          <hr class="vp-divider">
+          <div class="networth-line">
+            <strong>Subtotal</strong>
+            <strong class="networth-line-value">
+              ₹{{ "{:,.2f}".format(networth_statement.vasupradah_total or 0) }}
+            </strong>
+          </div>
+        </div>
+
       </div>
-      <div class="stat-label">At Risk</div>
-      <div class="stat-value" style="color:var(--vp-warning);">{{ goal_summary.at_risk }}</div>
-      <div class="stat-sub">needs attention</div>
     </div>
-  </div>
-  <div class="col-6 col-md-3">
-    <div class="vp-stat">
-      <div class="stat-icon"><i class="bi bi-graph-up-arrow"></i></div>
-      <div class="stat-label">Net Invested</div>
-      <div class="stat-value">
-        ₹{{ "{:,.0f}".format(vasupradah_summary.net_invested or 0) }}
-      </div>
-      <div class="stat-sub">
-        monthly avg. ₹{{ "{:,.0f}".format(vasupradah_summary.monthly_average or 0) }}
+
+    <!-- Other Heldaway Assets -->
+    <div class="col-xl-3 col-lg-6 col-md-6">
+      <div class="vp-card networth-box" style="background:#fbfcff; border-color:var(--vp-border);">
+
+        <div class="networth-box-title">
+          <span class="networth-dot" style="background:var(--vp-text-muted);"></span>
+          <h5 class="networth-heading" style="color:var(--vp-blue-dark);">
+            Other Heldaway Assets
+          </h5>
+        </div>
+
+        <div class="networth-list">
+          {% for row in networth_statement.heldaway_rows %}
+          <div class="networth-line">
+            <span class="networth-line-label">{{ row.asset_class or '—' }}</span>
+            <strong class="networth-line-value">
+              ₹{{ "{:,.2f}".format(row.total_value or 0) }}
+            </strong>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="networth-subtotal">
+          <hr class="vp-divider">
+          <div class="networth-line">
+            <strong>Subtotal</strong>
+            <strong class="networth-line-value">
+              ₹{{ "{:,.2f}".format(networth_statement.heldaway_total or 0) }}
+            </strong>
+          </div>
+        </div>
+
       </div>
     </div>
-  </div>
-  <div class="col-6 col-md-3">
-    <div class="vp-stat">
-      <div class="stat-icon"><i class="bi bi-wallet2"></i></div>
-      <div class="stat-label">Portfolio Value <br><span style="font-size: 0.7rem; color: var(--vp-text-muted);">(Vasupradah Investments)</span></div>
-      <div class="stat-value">
-        {% if portfolio_latest %}
-          ₹{{ "{:,.0f}".format(portfolio_latest.total_value or 0) }}
-        {% else %}—{% endif %}
-      </div>
-      <div class="stat-sub">
-        {% if portfolio_latest %}as of {{ portfolio_latest.snapshot_date }}{% else %}no snapshot yet{% endif %}
+
+    <!-- Other Assets Non-Liquid -->
+    <div class="col-xl-3 col-lg-6 col-md-6">
+      <div class="vp-card networth-box" style="background:#fffdf5; border-color:var(--vp-yellow);">
+
+        <div class="networth-box-title">
+          <span class="networth-dot" style="background:#f59e0b;"></span>
+          <h5 class="networth-heading" style="color:#7a350d;">
+            Other Assets (Non-Liquid)
+          </h5>
+        </div>
+
+        <div class="networth-list">
+          {% for row in networth_statement.non_liquid_rows %}
+          <div class="networth-line">
+            <div class="networth-line-label">
+              <strong>{{ row.asset_class or '—' }}</strong>
+              <div class="networth-muted">
+                Maturity:
+                {% if row.start_year and row.end_year %}
+                  {{ row.start_year }}{% if row.start_year != row.end_year %} - {{ row.end_year }}
+                  {% endif %}
+                {% else %}
+                  N/A
+                {% endif %}
+              </div>
+            </div>
+
+            <strong class="networth-line-value">
+              ₹{{ "{:,.2f}".format(row.total_value or 0) }}
+            </strong>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="networth-subtotal">
+          <hr class="vp-divider">
+          <div class="networth-line">
+            <strong>Subtotal</strong>
+            <strong class="networth-line-value">
+              ₹{{ "{:,.2f}".format(networth_statement.non_liquid_total or 0) }}
+            </strong>
+          </div>
+        </div>
+
       </div>
     </div>
+
+    <!-- Total Combined Networth -->
+    <div class="col-xl-3 col-lg-6 col-md-6">
+      <div class="networth-total-box">
+
+        <div class="networth-total-label">
+          Total Combined Networth
+        </div>
+
+        <div class="networth-total-value">
+          ₹{{ "{:,.2f}".format(networth_statement.grand_total or 0) }}
+        </div>
+
+        <hr style="border-color:rgba(255,255,255,0.25);">
+
+        <div class="networth-total-shares">
+          <div class="networth-share-line">
+            <span>Vasupradah Share:</span>
+            <strong>{{ networth_statement.vasupradah_share }}%</strong>
+          </div>
+
+          <div class="networth-share-line">
+            <span>Heldaway Share:</span>
+            <strong>{{ networth_statement.heldaway_share }}%</strong>
+          </div>
+
+          <div class="networth-share-line">
+            <span>Non-Liquid Share:</span>
+            <strong>{{ networth_statement.non_liquid_share }}%</strong>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
   </div>
 </div>
-
+{% endif %}
 
 <div class="section-title">
   <i class="bi bi-flag-fill"></i> Goal Tracking
@@ -254,15 +593,15 @@
       <div class="vp-card-body">
         <div class="cf-row">
           <span class="cf-label"><i class="bi bi-arrow-down-circle me-1" style="color:var(--vp-success);"></i>Total Invested</span>
-          <span class="cf-value">₹{{ "{:,.0f}".format(vasupradah_summary.total_invested or 0) }}</span>
+          <span class="cf-value">₹{{ "{:,.2f}".format(vasupradah_summary.total_invested or 0) }}</span>
         </div>
         <div class="cf-row">
           <span class="cf-label"><i class="bi bi-arrow-up-circle me-1" style="color:var(--vp-danger);"></i>Total Redeemed</span>
-          <span class="cf-value">₹{{ "{:,.0f}".format(vasupradah_summary.total_redeemed or 0) }}</span>
+          <span class="cf-value">₹{{ "{:,.2f}".format(vasupradah_summary.total_redeemed or 0) }}</span>
         </div>
         <div class="cf-row">
           <span class="cf-label"><i class="bi bi-calculator me-1" style="color:var(--vp-blue);"></i>Net Invested</span>
-          <span class="cf-value text-vp-blue">₹{{ "{:,.0f}".format(vasupradah_summary.net_invested or 0) }}</span>
+          <span class="cf-value text-vp-blue">₹{{ "{:,.2f}".format(vasupradah_summary.net_invested or 0) }}</span>
         </div>
         <div class="cf-row">
           <span class="cf-label"><i class="bi bi-list-check me-1"></i>Transactions</span>
@@ -275,7 +614,7 @@
         <div class="cf-row">
           <span class="cf-label" style="font-size:.82rem;">{{ t.transaction_date }}</span>
           <span style="font-family:var(--font-heading); font-weight:700; font-size:.88rem; color:{% if t.total_amount < 0 %}var(--vp-danger){% else %}var(--vp-success){% endif %};">
-            {% if t.total_amount < 0 %}−{% endif %}₹{{ "{:,.0f}".format(t.total_amount|abs) }}
+            {% if t.total_amount < 0 %}−{% endif %}₹{{ "{:,.2f}".format(t.total_amount|abs) }}
           </span>
         </div>
         {% endfor %}
@@ -284,291 +623,116 @@
     </div>
   </div>
 
-  <div class="col-md-7 d-flex flex-column">
-    <div class="section-title" style="margin-top:1.25rem;">
-      <i class="bi bi-pie-chart-fill"></i> Asset Allocation
-    </div>
-    <div class="vp-card flex-grow-1">
-      <div class="vp-card-header">
-        <h5 class="vp-card-title"><i class="bi bi-pie-chart-fill"></i> Current Allocation</h5>
-        {% if allocation_total.snapshot_date %}
-        <span class="vp-badge vp-badge-yellow">as of {{ allocation_total.snapshot_date }}</span>
-        {% endif %}
-      </div>
-      <div class="vp-card-body">
-        {% if allocation_rows %}
-          {% set total = allocation_total.total_value or 1 %}
-          {% for row in allocation_rows %}
-          <div class="alloc-bar-row">
-            <div class="alloc-bar-label">
-              <span style="font-size:.83rem; color:var(--vp-text-mid);">{{ row.asset_name }}</span>
-              <span style="font-family:var(--font-heading); font-weight:700; font-size:.83rem;">
-                {{ row.current_pct }}%
-              </span>
-            </div>
-            <div class="alloc-bar-wrap">
-              <div class="alloc-bar"
-                   style="width:{{ [row.current_pct | default(0) | float, 100]|min }}%; background:var(--vp-blue); opacity:{{ 0.5 + loop.index0 * 0.1 }};"></div>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-size:.72rem; color:var(--vp-text-muted); margin-top:.15rem;">
-              <span>₹{{ "{:,.0f}".format(row.current_value or 0) }}</span>
-              
-              {% if row.is_off_track %}
-                <span style="color:var(--vp-danger); font-weight: 700;">
-                  <i class="bi bi-exclamation-triangle-fill"></i> Off Track (Target {{ row.target_pct }}%)
-                </span>
-              {% else %}
-                <span style="color:var(--vp-success); font-weight: 600;">
-                  <i class="bi bi-check-circle-fill"></i> On Track (Target {{ row.target_pct }}%)
-                </span>
-              {% endif %}
-            </div>
-          </div>
-          {% endfor %}
-        {% else %}
-        <div class="text-center py-3" style="color:var(--vp-text-muted);">
-          <p class="small mb-0">No allocation data uploaded yet.</p>
+{% if allocation_rebalancing %}
+<div class="vp-card alloc-rebalancing-card mb-4">
+
+  <div class="alloc-rebalancing-header">
+    <h3 style="font-family:var(--font-heading); font-weight:800; color:var(--vp-blue-dark); margin:0;">
+      Asset Allocation &amp; Rebalancing
+    </h3>
+    <p style="color:var(--vp-text-muted); margin:0.25rem 0 0;">
+      System checks for deviations greater than 10% from the target allocation
+    </p>
+  </div>
+
+  <div class="row g-4">
+
+    <!-- Box 1: Vasupradah Investment Only -->
+    <div class="col-lg-6">
+      <div class="vp-card alloc-rebalancing-box">
+        <h5 class="vp-card-title mb-3">
+          <i class="bi bi-pie-chart-fill"></i>
+          Vasupradah Investment Only
+        </h5>
+
+        <div class="table-responsive">
+          <table class="alloc-rebalancing-table">
+            <thead>
+              <tr>
+                <th>Asset Class</th>
+                <th class="text-end">Target %</th>
+                <th class="text-end">Actual %</th>
+                <th class="text-end">Deviation</th>
+                <th class="text-end">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in allocation_rebalancing.vasupradah_only %}
+              <tr>
+                <td>{{ row.asset_class }}</td>
+                <td class="text-end">{{ "{:,.2f}".format(row.target_pct or 0) }}%</td>
+                <td class="text-end">{{ "{:,.2f}".format(row.actual_pct or 0) }}%</td>
+                <td class="text-end {% if row.is_off_track %}alloc-dev-negative{% else %}alloc-dev-positive{% endif %}">
+                  {% if row.deviation > 0 %}+{% endif %}{{ "{:,.2f}".format(row.deviation or 0) }}%
+                </td>
+                <td class="text-end">
+                  {% if row.is_off_track %}
+                    <span class="alloc-status-pill alloc-status-danger">Off Track</span>
+                  {% else %}
+                    <span class="alloc-status-pill alloc-status-ok">On Track</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
-        {% endif %}
       </div>
     </div>
+
+    <!-- Box 2: Vasupradah + dfcurrent_assets -->
+    <div class="col-lg-6">
+      <div class="vp-card alloc-rebalancing-box">
+        <h5 class="vp-card-title mb-3">
+          <i class="bi bi-pie-chart-fill"></i>
+          Vasupradah + Other Heldaway Assets
+        </h5>
+
+        <div class="table-responsive">
+          <table class="alloc-rebalancing-table">
+            <thead>
+              <tr>
+                <th>Asset Class</th>
+                <th class="text-end">Target %</th>
+                <th class="text-end">Actual %</th>
+                <th class="text-end">Deviation</th>
+                <th class="text-end">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in allocation_rebalancing.combined %}
+              <tr>
+                <td>{{ row.asset_class }}</td>
+                <td class="text-end">{{ "{:,.2f}".format(row.target_pct or 0) }}%</td>
+                <td class="text-end">{{ "{:,.2f}".format(row.actual_pct or 0) }}%</td>
+                <td class="text-end {% if row.is_off_track %}alloc-dev-negative{% else %}alloc-dev-positive{% endif %}">
+                  {% if row.deviation > 0 %}+{% endif %}{{ "{:,.2f}".format(row.deviation or 0) }}%
+                </td>
+                <td class="text-end">
+                  {% if row.is_off_track %}
+                    <span class="alloc-status-pill alloc-status-danger">Off Track</span>
+                  {% else %}
+                    <span class="alloc-status-pill alloc-status-ok">On Track</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="alloc-policy-box">
+    <strong>⚠ Rebalance Trigger Alert Policy:</strong><br>
+    Asset thresholds are continually reviewed. Deviations beyond ±10% from the target plan
+    flag action alerts to bring the portfolio risk profile back to equilibrium.
   </div>
 
 </div>
-
-
-<div class="section-title" id="current-assets">
-  <i class="bi bi-wallet-fill"></i> Current Financial Assets
-</div>
-<div class="vp-card vp-card-accent mb-3">
-  {% if current_assets_with_id or is_admin_view %}
-  <div class="vp-table-wrap">
-    <table class="vp-table">
-      <thead>
-        <tr>
-          <th>Asset</th><th>Class</th><th class="text-end">Value</th>
-          {% if is_admin_view %}<th style="width:120px;">Actions</th>{% endif %}
-        </tr>
-      </thead>
-      <tbody>
-        {% for a in current_assets_with_id %}
-        <tr id="cfa-row-{{ a.id }}">
-          <td class="cfa-display-{{ a.id }}">
-            <span style="font-weight:500;">{{ a.asset_name }}</span>
-          </td>
-          <td class="cfa-display-{{ a.id }}">
-            <span class="vp-badge {% if a.asset_class == 'Equity' %}vp-badge-blue{% elif a.asset_class == 'Debt' %}vp-badge-warning{% else %}vp-badge-success{% endif %}">
-              {{ a.asset_class or '—' }}
-            </span>
-          </td>
-          <td class="text-end cfa-display-{{ a.id }}" style="font-family:var(--font-heading); font-weight:700;">
-            ₹{{ "{:,.0f}".format(a.current_value or 0) }}
-          </td>
-          {% if is_admin_view %}
-          <td class="cfa-display-{{ a.id }}">
-            <button class="btn-vp-ghost" style="font-size:0.75rem; padding:0.2rem 0.55rem;"
-                    onclick="cfaEdit({{ a.id }})">
-              <i class="bi bi-pencil"></i>
-            </button>
-            <form method="POST" action="{{ url_for('admin.delete_current_asset_route', row_id=a.id) }}"
-                  style="display:inline;" onsubmit="return confirm('Remove this asset?');">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-              <input type="hidden" name="customer_id" value="{{ customer_id }}">
-              <button type="submit" class="btn-vp-ghost" style="font-size:0.75rem; padding:0.2rem 0.55rem; color:var(--vp-danger);">
-                <i class="bi bi-trash"></i>
-              </button>
-            </form>
-          </td>
-          {% endif %}
-        </tr>
-
-        {% if is_admin_view %}
-        <tr id="cfa-edit-{{ a.id }}" style="display:none; background:var(--vp-blue-light);">
-          <td colspan="4">
-            <form method="POST" action="{{ url_for('admin.edit_current_asset_route', row_id=a.id) }}"
-                  class="d-flex gap-2 align-items-center flex-wrap">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-              <input type="hidden" name="customer_id" value="{{ customer_id }}">
-              <input type="text" name="asset_name" value="{{ a.asset_name }}"
-                     class="vp-input" style="max-width:200px;" required>
-              <select name="asset_class" class="vp-input" style="max-width:130px;">
-                {% for cls in ['Equity','Debt','Liquid','Gold','Hybrid','Other'] %}
-                <option value="{{ cls }}" {% if a.asset_class == cls %}selected{% endif %}>{{ cls }}</option>
-                {% endfor %}
-              </select>
-              <input type="number" step="0.01" name="current_value" value="{{ a.current_value }}"
-                     class="vp-input" style="max-width:160px;" required>
-              <button type="submit" class="btn-vp-primary" style="font-size:0.8rem; padding:0.35rem 0.9rem;">
-                <i class="bi bi-check-lg"></i> Save
-              </button>
-              <button type="button" class="btn-vp-ghost" style="font-size:0.8rem; padding:0.35rem 0.9rem;"
-                      onclick="cfaCancel({{ a.id }})">
-                Cancel
-              </button>
-            </form>
-          </td>
-        </tr>
-        {% endif %}
-        {% endfor %}
-      </tbody>
-      {% if current_assets_with_id %}
-      <tfoot>
-        <tr>
-          <td colspan="{{ '2' if not is_admin_view else '3' }}">Total</td>
-          <td class="text-end" style="font-family:var(--font-heading); font-weight:800; color:var(--vp-blue-dark);">
-            ₹{{ "{:,.0f}".format(current_assets_total or 0) }}
-          </td>
-          {% if is_admin_view %}<td></td>{% endif %}
-        </tr>
-      </tfoot>
-      {% endif %}
-    </table>
-  </div>
-
-  {% if is_admin_view %}
-  <div class="vp-card-body" style="border-top:1px solid var(--vp-border);">
-    <form method="POST" action="{{ url_for('admin.add_current_asset_route', customer_id=customer_id) }}"
-          class="d-flex gap-2 align-items-center flex-wrap">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-      <input type="text" name="asset_name" placeholder="Asset name"
-             class="vp-input" style="max-width:200px;" required>
-      <select name="asset_class" class="vp-input" style="max-width:130px;">
-        {% for cls in ['Equity','Debt','Liquid','Gold','Hybrid','Other'] %}
-        <option value="{{ cls }}">{{ cls }}</option>
-        {% endfor %}
-      </select>
-      <input type="number" step="0.01" name="current_value" placeholder="Value"
-             class="vp-input" style="max-width:160px;" required>
-      <button type="submit" class="btn-vp-yellow" style="font-size:0.85rem; padding:0.45rem 1.1rem;">
-        <i class="bi bi-plus-lg"></i> Add Asset
-      </button>
-    </form>
-  </div>
-  {% endif %}
-
-  {% else %}
-  <div class="vp-card-body text-center py-3" style="color:var(--vp-text-muted);">
-    <p class="small mb-0">No current asset data. Upload a financial plan JSON to populate.</p>
-  </div>
-  {% endif %}
-</div>
-
-
-<div class="section-title" id="other-assets">
-  <i class="bi bi-safe2-fill"></i> Held Away Assets
-</div>
-<div class="vp-card mb-3">
-  {% if other_assets_with_id or is_admin_view %}
-  <div class="vp-table-wrap">
-    <table class="vp-table">
-      <thead>
-        <tr>
-          <th>Asset</th><th>Type</th>
-          <th>Maturity</th><th>Maturity Value</th>
-          {% if is_admin_view %}<th style="width:120px;">Actions</th>{% endif %}
-        </tr>
-      </thead>
-      <tbody>
-        {% for a in other_assets_with_id %}
-        <tr id="oa-row-{{ a.id }}">
-          <td class="oa-display-{{ a.id }}" style="font-weight:500;">{{ a.asset_name }}</td>
-          <td class="oa-display-{{ a.id }}" style="font-size:0.83rem; color:var(--vp-text-muted);">
-            {{ a.asset_type or '—' }}
-          </td>
-          <td class="oa-display-{{ a.id }}" style="font-family:var(--font-heading); font-weight:700;">
-            {{ a.maturity_date.strftime('%Y') if a.maturity_date else '—' }}
-          </td>
-          <td class="oa-display-{{ a.id }}" style="font-family:var(--font-heading); font-weight:700;">
-            ₹{{ "{:,.0f}".format(a.maturity_value or 0) }}
-          </td>
-          {% if is_admin_view %}
-          <td class="oa-display-{{ a.id }}">
-            <button class="btn-vp-ghost" style="font-size:0.75rem; padding:0.2rem 0.55rem;"
-                    onclick="oaEdit({{ a.id }})">
-              <i class="bi bi-pencil"></i>
-            </button>
-            <form method="POST" action="{{ url_for('admin.delete_other_asset_route', row_id=a.id) }}"
-                  style="display:inline;" onsubmit="return confirm('Remove this asset?');">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-              <input type="hidden" name="customer_id" value="{{ customer_id }}">
-              <button type="submit" class="btn-vp-ghost" style="font-size:0.75rem; padding:0.2rem 0.55rem; color:var(--vp-danger);">
-                <i class="bi bi-trash"></i>
-              </button>
-            </form>
-          </td>
-          {% endif %}
-        </tr>
-
-        {% if is_admin_view %}
-        <tr id="oa-edit-{{ a.id }}" style="display:none; background:var(--vp-blue-light);">
-          <td colspan="5">
-            <form method="POST" action="{{ url_for('admin.edit_other_asset_route', row_id=a.id) }}"
-                  class="d-flex gap-2 align-items-center flex-wrap">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-              <input type="hidden" name="customer_id" value="{{ customer_id }}">
-              <input type="text" name="asset_name" value="{{ a.asset_name }}"
-                     class="vp-input" style="max-width:170px;" placeholder="Asset name" required>
-              <input type="text" name="asset_type" value="{{ a.asset_type or '' }}"
-                     class="vp-input" style="max-width:140px;" placeholder="Type">
-              <input type="number" step="0.01" name="current_value" value="{{ a.current_value }}"
-                     class="vp-input" style="max-width:130px;" placeholder="Current value">
-              <input type="number" step="0.01" name="maturity_value" value="{{ a.maturity_value }}"
-                     class="vp-input" style="max-width:130px;" placeholder="Maturity value">
-              <input type="number" step="0.01" name="annual_contribution" value="{{ a.annual_contribution }}"
-                     class="vp-input" style="max-width:130px;" placeholder="Annual contribution">
-              <input type="date" name="maturity_date"
-                     value="{{ a.maturity_date.strftime('%Y-%m-%d') if a.maturity_date else '' }}"
-                     class="vp-input" style="max-width:150px;">
-              <input type="text" name="notes" value="{{ a.notes or '' }}"
-                     class="vp-input" style="max-width:160px;" placeholder="Notes">
-              <button type="submit" class="btn-vp-primary" style="font-size:0.8rem; padding:0.35rem 0.9rem;">
-                <i class="bi bi-check-lg"></i> Save
-              </button>
-              <button type="button" class="btn-vp-ghost" style="font-size:0.8rem; padding:0.35rem 0.9rem;"
-                      onclick="oaCancel({{ a.id }})">
-                Cancel
-              </button>
-            </form>
-          </td>
-        </tr>
-        {% endif %}
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-  {% if is_admin_view %}
-  <div class="vp-card-body" style="border-top:1px solid var(--vp-border);">
-    <form method="POST" action="{{ url_for('admin.add_other_asset_route', customer_id=customer_id) }}"
-          class="d-flex gap-2 align-items-center flex-wrap">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-      <input type="text" name="asset_name" placeholder="Asset name"
-             class="vp-input" style="max-width:170px;" required>
-      <input type="text" name="asset_type" placeholder="Type (e.g. FD, Insurance)"
-             class="vp-input" style="max-width:160px;">
-      <input type="number" step="0.01" name="current_value" placeholder="Current value"
-             class="vp-input" style="max-width:130px;">
-      <input type="number" step="0.01" name="maturity_value" placeholder="Maturity value"
-             class="vp-input" style="max-width:130px;">
-      <input type="number" step="0.01" name="annual_contribution" placeholder="Annual contribution"
-             class="vp-input" style="max-width:140px;">
-      <input type="date" name="maturity_date" class="vp-input" style="max-width:150px;">
-      <input type="text" name="notes" placeholder="Notes"
-             class="vp-input" style="max-width:160px;">
-      <button type="submit" class="btn-vp-yellow" style="font-size:0.85rem; padding:0.45rem 1.1rem;">
-        <i class="bi bi-plus-lg"></i> Add Asset
-      </button>
-    </form>
-  </div>
-  {% endif %}
-
-  {% else %}
-  <div class="vp-card-body text-center py-3" style="color:var(--vp-text-muted);">
-    <p class="small mb-0">No held away assets on record.</p>
-  </div>
-  {% endif %}
-</div>
-
+{% endif %}
 
 <div class="row g-3 mb-3">
   <div class="col-md-6">

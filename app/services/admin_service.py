@@ -424,7 +424,11 @@ def insert_other_assets(customer_id, plan_id, assets):
     Convert integer year (e.g. 2038) to proper date (2038-01-01).
     """
     for a in assets:
-        raw_year    = a.get("maturity_year")
+        raw_year    = (
+            a.get("maturity_year")
+            or a.get("date_maturity")
+            or a.get("maturity_date")
+            )
         maturity_dt = None
         if raw_year:
             try:
@@ -442,10 +446,13 @@ def insert_other_assets(customer_id, plan_id, assets):
             """,
             params=(
                 customer_id,
-                a.get("asset_name"), a.get("asset_type"),
-                a.get("current_value", 0), a.get("maturity_value", 0),
+                a.get("asset_name") or a.get("name"),
+                a.get("asset_type") or a.get("asset_class"),
+                a.get("current_value", 0),
+                a.get("maturity_value") or a.get("maturity_amt") or 0,
                 a.get("annual_contribution", 0),
-                maturity_dt, a.get("notes"),
+                maturity_dt,
+                a.get("notes"),
             ),
             commit=True
         )
@@ -674,6 +681,18 @@ def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
             os.makedirs(os.path.dirname(dest_path), exist_ok=True)
             shutil.copy2(full_path, dest_path)
             html_paths_by_pan[pan] = dest_path
+
+            # Attach uploaded HTML report to the customer's current plan immediately.
+            # This handles the case where admin uploads only report.html without JSON.
+            query(
+            """
+            UPDATE financial_plans
+            SET html_file_path = %s
+            WHERE customer_id = %s AND is_current = 1
+            """,
+            params=(dest_path, customer["id"]),
+            commit=True
+            )
             
             results["report_html"].append({
                 "filename": filename, "pan": pan, "customer_name": customer["name"],
@@ -703,20 +722,47 @@ def process_bulk_upload(extract_dir, save_uploads_to="uploads"):
 
             parsed = parse_plan_json(dest_path)
 
-            archive_existing_plans(customer["id"])
-            plan_id = create_plan_record(
-                customer_id    = customer["id"],
-                plan_data      = parsed["plan"],
-                html_file_path = html_paths_by_pan.get(pan),
-                json_file_path = dest_path,
-                ingestion_source = "upload",
+            # Preserve existing HTML report if a new JSON is uploaded without report.html
+            old_plan = query(
+                """
+                SELECT html_file_path
+                FROM financial_plans
+                WHERE customer_id = %s AND is_current = 1
+                ORDER BY uploaded_at DESC
+                LIMIT 1
+                """,
+                params=(customer["id"],),
+                fetchone=True
             )
 
+            existing_html_path = old_plan.get("html_file_path") if old_plan else None
+
+            archive_existing_plans(customer["id"])
+
+            plan_id = create_plan_record(
+                customer_id=customer["id"],
+                plan_data=parsed["plan"],
+                html_file_path=html_paths_by_pan.get(pan) or existing_html_path,
+                json_file_path=dest_path,
+                ingestion_source="upload",
+            )
+
+            # 3. Insert latest JSON-linked data
             insert_family_members(plan_id, parsed["family"])
             insert_goals(plan_id, parsed["goals"])
             insert_cashflow(plan_id, parsed["cashflow"])
             insert_current_assets(plan_id, parsed["current_assets"])
             insert_retirement_expenses(plan_id, parsed["retirement_expenses"])
+
+            # 4. IMPORTANT:
+            # other_assets is customer_id based, not plan_id based in your current schema.
+            # So delete old JSON held-away assets before inserting latest JSON held-away assets.
+            query(
+            "DELETE FROM other_assets WHERE customer_id = %s",
+            params=(customer["id"],),
+            commit=True
+            )
+
             insert_other_assets(customer["id"], plan_id, parsed["other_assets"])
 
             results["plan_json"].append({

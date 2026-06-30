@@ -2,6 +2,7 @@ import pandas as pd
 from datetime import date
 from pathlib import Path
 import numpy as np
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 def parse_transactions(file_path, upload_date=None):
     """
@@ -36,8 +37,28 @@ def parse_transactions(file_path, upload_date=None):
     df["TRANSACTION DATE"] = df["TRANSACTION DATE"].dt.date
 
     # 4. Clean Numeric Amounts
-    cleaned_amount = df["TOTAL AMOUNT"].astype(str).str.replace(',', '', regex=False)
-    df["TOTAL AMOUNT"] = pd.to_numeric(cleaned_amount, errors="coerce").fillna(0.0)
+    # 4. Clean Numeric Amounts
+# Preserve paise/decimal precision from Excel.
+# Do not cast to int and do not format as 0 decimals here.
+    def _money(value):
+        if pd.isna(value):
+            return Decimal("0.00")
+
+        try:
+            cleaned = str(value).replace(",", "").strip()
+
+            if cleaned == "" or cleaned.lower() in {"nan", "none", "null"}:
+                return Decimal("0.00")
+
+            return Decimal(cleaned).quantize(
+                Decimal("0.01"),
+                rounding=ROUND_HALF_UP
+            )
+
+        except (InvalidOperation, ValueError):
+            return Decimal("0.00")
+
+    df["TOTAL AMOUNT"] = df["TOTAL AMOUNT"].apply(_money)
 
     # 5. Extract Optional Columns Safely
     source_row_id = pd.to_numeric(df["Unnamed: 0"], errors="coerce").fillna(0).astype(int) if "Unnamed: 0" in df.columns else None
